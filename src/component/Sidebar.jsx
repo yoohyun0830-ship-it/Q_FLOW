@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
     House,
     Activity,
@@ -13,6 +13,10 @@ import {
 import "../css/sidebar.css";
 
 export default function Sidebar() {
+
+    const { pathname } = useLocation();
+    const isAnomalyMenu = pathname === "/anomaly" || pathname.startsWith("/anomaly/");
+    const isDataMenu =  pathname === "/data" || pathname.startsWith("/data/");
 
     return (
         <aside className="sidebar">
@@ -46,15 +50,50 @@ export default function Sidebar() {
                     <span>품질 관리</span>
                 </NavLink>
 
-                <NavLink to="/anomaly">
-                    <Bell className="menu-icon" />
-                    <span>이벤트 / 알람</span>
-                </NavLink>
+                {/* 이벤트 / 알림 */}
+                <div className="alarm-menu-group">
+                    {/* 큰 메뉴 클릭 → 알람 메인 화면 */}
+                    <NavLink to="/anomaly" end>
+                        <Bell className="menu-icon" />
+                        <span>이벤트 / 알람</span>
+                        <span className="alarm-menu-arrow">
+                            {isAnomalyMenu ? "▾" : "▸"}
+                        </span>
+                    </NavLink>
 
-                <NavLink to="/data">
-                    <Database className="menu-icon" />
-                    <span>제조데이터 관리</span>
-                </NavLink>
+                    {/* 알람 메뉴에 들어오면 하위 메뉴 표시 */}
+                    {isAnomalyMenu && (
+                        <div className="alarm-submenu">
+                            <NavLink to="/anomaly/actions">
+                                조치 내역
+                            </NavLink>
+                        </div>
+                    )}
+                </div>
+
+                {/* 제조데이터 관리 */}
+                <div className="alarm-menu-group">
+                    <NavLink to="/data" end>
+                        <Database className="menu-icon" />
+                        <span>제조데이터 관리</span>
+
+                        <span className="alarm-menu-arrow">
+                            {isDataMenu ? "▾" : "▸"}
+                        </span>
+                    </NavLink>
+
+                    {isDataMenu && (
+                        <div className="alarm-submenu">
+                            <NavLink to="/data/lots">
+                                LOT별 이력 조회
+                            </NavLink>
+
+                            <NavLink to="/data/changes">
+                                데이터 변경이력
+                            </NavLink>
+                        </div>
+                    )}
+                </div>
 
                 <NavLink to="/report">
                     <BarChart3 className="menu-icon" />
