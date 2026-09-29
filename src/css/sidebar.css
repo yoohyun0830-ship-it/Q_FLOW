@@ -1,34 +1,139 @@
 .sidebar {
     width: 230px;
     min-height: 100vh;
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-    padding: 25px 18px;
+
+    background-color: #081a33;
+
+    padding: 28px 18px;
+
+    box-sizing: border-box;
     flex-shrink: 0;
-}
 
-.sidebar-logo {
-    font-size: 26px;
-    font-weight: bold;
-    margin-bottom: 35px;
-}
-
-.sidebar nav {
     display: flex;
     flex-direction: column;
+}
+
+
+/* =========================
+   Q-FLOW 로고
+========================= */
+
+.sidebar-logo {
+    margin-bottom: 38px;
+    padding-left: 12px;
+}
+
+.sidebar-logo h1 {
+    margin: 0;
+
+    color: #ffffff;
+
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.sidebar-logo p {
+    margin: 5px 0 0;
+
+    color: #8ea0b7;
+
+    font-size: 10px;
+}
+
+
+/* =========================
+   메뉴
+========================= */
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+
     gap: 8px;
 }
 
-.sidebar a {
-    display: block;
-    padding: 12px 15px;
-    border-radius: 8px;
+.sidebar-menu a {
+    display: flex;
+    align-items: center;
 
-    color: #444;
-    font-size: 15px;
+    gap: 13px;
+
+    height: 46px;
+
+    padding: 0 14px;
+
+    box-sizing: border-box;
+
+    border-radius: 6px;
+
+    color: #c5cfdb;
+
+    font-size: 14px;
+    font-weight: 500;
+
     text-decoration: none;
+
+    transition: 0.2s;
 }
 
-.sidebar a:hover {
-    background-color: #f0f2f5;
+
+/* 아이콘 */
+
+.menu-icon {
+    width: 19px;
+    height: 19px;
+
+    flex-shrink: 0;
+
+    stroke-width: 2;
+}
+
+
+/* 마우스 올렸을 때 */
+
+.sidebar-menu a:hover {
+    background-color: #102b4c;
+    color: #ffffff;
+}
+
+
+/* 현재 선택된 메뉴 */
+
+.sidebar-menu a.active {
+    background-color: #1463e6;
+    color: #ffffff;
+}
+
+
+/* =========================
+   사이드바 하단
+========================= */
+
+.sidebar-bottom {
+    margin-top: auto;
+
+    padding: 0 12px 5px;
+
+    color: #ffffff;
+}
+
+.essence-text {
+    margin-bottom: 22px;
+
+    color: #ffffff;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    line-height: 1.5;
+}
+
+.bottom-logo {
+    color: #ffffff;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    letter-spacing: 1px;
 }
