@@ -12,13 +12,15 @@ import Quality from "./pages/Quality";
 import Anomaly from "./pages/Anomaly";
 import DataManagement from "./pages/DataManagement";
 
+// 추가
+import Report from "./pages/Report";
+import System from "./pages/System";
+
 function App() {
 
     return (
         <BrowserRouter>
-
             <Routes>
-
                 {/* 로그인 화면 */}
                 <Route path="/" element={<Login />} />
 
@@ -27,38 +29,40 @@ function App() {
 
                     <Route
                         path="/dashboard"
-                        element={<Dashboard />}
-                    />
+                        element={<Dashboard />}/>
 
                     <Route
                         path="/production"
-                        element={<Production />}
-                    />
+                        element={<Production />}/>
 
                     <Route
                         path="/process"
-                        element={<Process />}
-                    />
+                        element={<Process />}/>
 
                     <Route
                         path="/quality"
-                        element={<Quality />}
-                    />
+                        element={<Quality />}/>
 
                     <Route
                         path="/anomaly"
-                        element={<Anomaly />}
-                    />
+                        element={<Anomaly />}/>
 
                     <Route
                         path="/data"
-                        element={<DataManagement />}
-                    />
+                        element={<DataManagement />}/>
+
+                    {/* 분석 및 리포트 */}
+                    <Route
+                        path="/report"
+                        element={<Report />}/>
+
+                    {/* 시스템 관리 */}
+                    <Route
+                        path="/system"
+                        element={<System />}/>
 
                 </Route>
-
             </Routes>
-
         </BrowserRouter>
     );
 }
