@@ -1,0 +1,2 @@
+리액트 취합시, npm install 입력 후 npm run dev 실행
+npm install -> 새로고침해주는 역할
