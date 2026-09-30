@@ -137,3 +137,29 @@
 
     letter-spacing: 1px;
 }
+
+.alarm-menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.alarm-menu-group.is-open {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 8px;
+}
+
+.alarm-menu-arrow {
+    margin-left: auto;
+    font-size: 12px;
+}
+
+.sidebar-menu .alarm-submenu a {
+    padding-left: 48px;
+    font-size: 13px;
+}
+
+.sidebar-menu .alarm-submenu a.active {
+    background: #2563eb;
+    color: white;
+}

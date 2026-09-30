@@ -1,0 +1,602 @@
+/* ========================================
+   기본 화면
+======================================== */
+.manufacturing-page {
+    width: 100%;
+    min-width: 0;
+    color: #26344a;
+}
+
+.manufacturing-page h1 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.manufacturing-subtitle {
+    margin: 0 0 24px;
+    color: #718096;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.manufacturing-page h2 {
+    margin: 0;
+    font-size: 18px;
+    overflow-wrap: anywhere;
+}
+
+.manufacturing-page h3 {
+    margin: 22px 0 12px;
+    font-size: 15px;
+}
+
+/* ========================================
+   입력창·선택창·버튼 공통
+======================================== */
+.manufacturing-page input,
+.manufacturing-page select,
+.manufacturing-page button {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 40px;
+    padding: 9px 12px;
+
+    border: 1px solid #dce4ef;
+    border-radius: 7px;
+
+    background: #ffffff;
+    color: #26344a;
+    font: inherit;
+    font-size: 13px;
+}
+
+.manufacturing-page input::placeholder {
+    color: #9aa6b7;
+}
+
+.manufacturing-page button {
+    cursor: pointer;
+    transition:
+        background-color 0.15s,
+        border-color 0.15s;
+}
+
+.manufacturing-page button:hover:not(:disabled) {
+    background: #edf4ff;
+    border-color: #a8c7f5;
+}
+
+.manufacturing-page button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.manufacturing-page input:focus-visible,
+.manufacturing-page select:focus-visible,
+.manufacturing-page button:focus-visible {
+    outline: 3px solid #bfdbfe;
+    outline-offset: 2px;
+}
+
+/* 조회 버튼 */
+.manufacturing-page .manufacturing-primary {
+    min-width: 84px;
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.manufacturing-page .manufacturing-primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+/* ========================================
+   원본 데이터 종류 선택
+======================================== */
+.manufacturing-type {
+    margin-bottom: 18px;
+    padding: 20px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+}
+
+.manufacturing-type label {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+
+    max-width: 360px;
+
+    color: #52637d;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.manufacturing-type select {
+    width: 100%;
+}
+
+/* ========================================
+   검색창
+======================================== */
+.manufacturing-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+
+    margin-bottom: 22px;
+    padding: 20px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+}
+
+.manufacturing-search label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+
+    color: #52637d;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.manufacturing-search input,
+.manufacturing-search select {
+    width: 100%;
+}
+
+.manufacturing-search input[type="date"] {
+    min-width: 155px;
+}
+
+.manufacturing-search select {
+    min-width: 140px;
+    max-width: 300px;
+}
+
+/* 검색어 입력칸은 남는 공간 사용 */
+.manufacturing-search .manufacturing-keyword {
+    flex: 1;
+    min-width: 180px;
+}
+
+/* ========================================
+   목록 + 상세정보 배치
+======================================== */
+.manufacturing-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.manufacturing-card {
+    min-width: 0;
+    padding: 22px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+
+    box-shadow: 0 3px 12px rgba(31, 55, 88, 0.03);
+}
+
+.manufacturing-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+
+    margin-bottom: 20px;
+}
+
+.manufacturing-card-heading > div {
+    min-width: 0;
+}
+
+.manufacturing-card-heading h2 {
+    margin-bottom: 8px;
+}
+
+.manufacturing-card-heading span {
+    color: #7c899d;
+    font-size: 13px;
+}
+
+/* ========================================
+   목록 표
+======================================== */
+.manufacturing-table-wrap {
+    max-height: 620px;
+    overflow: auto;
+    border: 1px solid #e5ebf3;
+    border-radius: 8px;
+}
+
+.manufacturing-table-wrap table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+
+.manufacturing-table-wrap th,
+.manufacturing-table-wrap td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #e9eef5;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.manufacturing-table-wrap th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    background: #f1f5fb;
+    color: #5a6e8a;
+    font-weight: 600;
+}
+
+.manufacturing-table-wrap td {
+    color: #30415d;
+}
+
+.manufacturing-table-wrap tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.manufacturing-table-wrap tbody tr:hover {
+    background: #f7faff;
+}
+
+/* 선택한 행 */
+.manufacturing-table-wrap tbody tr.selected {
+    background: #eaf2ff;
+}
+
+.manufacturing-table-wrap tbody tr.selected:hover {
+    background: #e2edff;
+}
+
+/* 표 안의 상세 버튼 */
+.manufacturing-table-wrap button {
+    min-height: 32px;
+    padding: 5px 11px;
+
+    background: #ffffff;
+    color: #2563eb;
+    font-size: 12px;
+}
+
+/* 조회 결과가 없는 경우 */
+.manufacturing-table-wrap td[colspan] {
+    padding: 38px 16px;
+    color: #7f8ba0;
+    text-align: center;
+    white-space: normal;
+}
+
+/* ========================================
+   페이지 이동
+======================================== */
+.manufacturing-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+
+    margin-top: 22px;
+}
+
+.manufacturing-pagination > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.manufacturing-pagination span {
+    min-width: 55px;
+    color: #61718a;
+    font-size: 13px;
+    text-align: center;
+}
+
+.manufacturing-pagination button {
+    min-width: 58px;
+}
+
+.manufacturing-pagination select {
+    min-width: 100px;
+}
+
+/* ========================================
+   상세정보
+======================================== */
+.manufacturing-detail {
+    margin: 18px 0 0;
+}
+
+.manufacturing-detail > div {
+    display: grid;
+    grid-template-columns: 115px minmax(0, 1fr);
+    gap: 12px;
+
+    padding: 12px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+}
+
+.manufacturing-detail > div:last-child {
+    border-bottom: none;
+}
+
+.manufacturing-detail dt {
+    color: #728198;
+    font-weight: 500;
+}
+
+.manufacturing-detail dd {
+    min-width: 0;
+    margin: 0;
+
+    color: #26344a;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ========================================
+   변경 전후 비교
+======================================== */
+.manufacturing-comparison {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid #e7edf5;
+}
+
+.manufacturing-comparison > div {
+    min-width: 0;
+    padding: 18px 12px;
+    border-radius: 9px;
+    text-align: center;
+}
+
+.manufacturing-comparison > div > span {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.manufacturing-comparison strong {
+    display: block;
+    font-size: 20px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* 기존값 */
+.manufacturing-comparison .before {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #b91c1c;
+}
+
+/* 변경값 */
+.manufacturing-comparison .after {
+    background: #ecfdf3;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+/* 가운데 화살표 */
+.manufacturing-comparison > span {
+    color: #94a3b8;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+/* 변경사유 */
+.manufacturing-reason {
+    margin: 0;
+    padding: 16px;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f5f7fb;
+
+    color: #52637d;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ========================================
+   LOT 기본정보
+======================================== */
+.manufacturing-lot {
+    margin-bottom: 20px;
+}
+
+.manufacturing-lot h2 {
+    margin-bottom: 20px;
+    color: #214d94;
+    font-size: 21px;
+}
+
+.manufacturing-lot-info {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.manufacturing-lot-info > div {
+    min-width: 0;
+    padding-left: 16px;
+    border-left: 2px solid #e4ecf8;
+}
+
+.manufacturing-lot-info span {
+    display: block;
+    margin-bottom: 9px;
+    color: #7b889d;
+    font-size: 12px;
+}
+
+.manufacturing-lot-info strong {
+    display: block;
+    color: #30415d;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+/* ========================================
+   LOT 이력 종류 탭
+======================================== */
+.manufacturing-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 20px;
+    padding: 10px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 10px;
+}
+
+.manufacturing-tabs button {
+    flex: 1;
+    min-width: 100px;
+    border-color: transparent;
+    color: #687b96;
+    font-weight: 600;
+}
+
+.manufacturing-tabs button[aria-pressed="true"] {
+    background: #eaf2ff;
+    border-color: #bfd6ff;
+    color: #2563eb;
+}
+
+.manufacturing-tabs button[aria-pressed="true"]:hover {
+    background: #e0edff;
+}
+
+/* ========================================
+   로딩·안내·오류
+======================================== */
+.manufacturing-message {
+    margin: 0;
+    padding: 36px 14px;
+
+    color: #7f8ba0;
+    font-size: 14px;
+    line-height: 1.8;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.manufacturing-error {
+    margin: 16px 0;
+    padding: 16px;
+
+    background: #fff1ef;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+
+    color: #b33428;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+/* ========================================
+   작은 화면 대응
+======================================== */
+@media (max-width: 1200px) {
+    /* 목록 아래에 상세정보 배치 */
+    .manufacturing-content {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .manufacturing-lot-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .manufacturing-page h1 {
+        font-size: 22px;
+    }
+
+    .manufacturing-card,
+    .manufacturing-type,
+    .manufacturing-search {
+        padding: 16px;
+    }
+
+    .manufacturing-search {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .manufacturing-search .manufacturing-keyword {
+        flex: none;
+        min-width: 0;
+    }
+
+    .manufacturing-search input[type="date"],
+    .manufacturing-search select {
+        min-width: 0;
+        max-width: none;
+        width: 100%;
+    }
+
+    .manufacturing-type label {
+        max-width: none;
+    }
+
+    .manufacturing-lot-info {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .manufacturing-detail > div {
+        grid-template-columns: 90px minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .manufacturing-pagination {
+        justify-content: center;
+    }
+
+    .manufacturing-comparison {
+        gap: 8px;
+    }
+
+    .manufacturing-comparison strong {
+        font-size: 17px;
+    }
+}   

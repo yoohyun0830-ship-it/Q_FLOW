@@ -1,0 +1,498 @@
+.alarm-page {
+    color: #26344a;
+}
+
+.alarm-page-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.alarm-page-heading h1 {
+    margin: 0 0 8px;
+    font-size: 26px;
+}
+
+.alarm-page-heading p {
+    margin: 0;
+    color: #778399;
+    font-size: 14px;
+}
+
+.alarm-button,
+.alarm-detail-button {
+    padding: 9px 14px;
+    background: white;
+    border: 1px solid #dce4ef;
+    border-radius: 7px;
+    color: #31558a;
+    font: inherit;
+    cursor: pointer;
+}
+
+.alarm-button:hover,
+.alarm-detail-button:hover {
+    background: #edf4ff;
+}
+
+.alarm-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.alarm-page button:focus-visible {
+    outline: 3px solid #91b7ff;
+    outline-offset: 2px;
+}
+
+/* 상단 요약 */
+.alarm-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+}
+
+.alarm-summary-card {
+    padding: 22px;
+    background: linear-gradient(120deg, #edf4ff, #ffffff);
+    border: 1px solid #dce7fa;
+    border-radius: 12px;
+}
+
+.alarm-summary-card span {
+    display: block;
+    margin-bottom: 10px;
+    color: #657891;
+    font-size: 14px;
+}
+
+.alarm-summary-card strong {
+    color: #214d94;
+    font-size: 30px;
+}
+
+/* 목록 + 상세 */
+.alarm-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.alarm-card {
+    min-width: 0;
+    padding: 22px;
+    background: white;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+}
+
+.alarm-card h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.alarm-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.alarm-card-heading span {
+    color: #8490a2;
+    font-size: 12px;
+}
+
+/* 목록 표 */
+.alarm-table-wrap {
+    max-height: 650px;
+    overflow: auto;
+}
+
+.alarm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.alarm-table th,
+.alarm-table td {
+    padding: 14px 10px;
+    text-align: left;
+    border-bottom: 1px solid #edf0f5;
+    white-space: nowrap;
+}
+
+.alarm-table th {
+    position: sticky;
+    top: 0;
+    background: #f3f6fb;
+    color: #61718a;
+    font-weight: 600;
+}
+
+.alarm-table tbody tr:hover {
+    background: #f8fbff;
+}
+
+.alarm-table tbody tr.is-selected {
+    background: #eaf2ff;
+}
+
+.alarm-badge {
+    display: inline-block;
+    padding: 4px 9px;
+    background: #edf2fb;
+    border-radius: 6px;
+    color: #375b96;
+    font-size: 12px;
+}
+
+.alarm-detail-button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* 상세정보 */
+.alarm-detail-list {
+    margin: 18px 0 0;
+}
+
+.alarm-detail-row {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef1f6;
+    font-size: 13px;
+}
+
+.alarm-detail-row dt {
+    color: #758299;
+}
+
+.alarm-detail-row dd {
+    margin: 0;
+    color: #26344a;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.alarm-section-title {
+    margin: 26px 0 0;
+    padding-top: 18px;
+    border-top: 2px solid #edf2f8;
+    font-size: 16px;
+}
+
+.alarm-message {
+    padding: 36px 12px;
+    color: #7f8ba0;
+    text-align: center;
+    line-height: 1.7;
+}
+
+.alarm-error {
+    padding: 16px;
+    background: #fff1ef;
+    border-radius: 8px;
+    color: #b33428;
+    line-height: 1.7;
+}
+
+@media (max-width: 1200px) {
+    .alarm-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .alarm-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .alarm-page-heading {
+        align-items: flex-start;
+    }
+
+    .alarm-card {
+        padding: 16px;
+    }
+}
+
+/* B안처럼 아이콘과 건수를 나란히 표시 */
+.alarm-status-summary {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.alarm-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.alarm-stat-card .alarm-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 56px;
+    height: 56px;
+    margin: 0;
+
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #2563eb;
+    font-size: 28px;
+}
+
+.alarm-stat-card > div > span {
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.alarm-stat-state {
+    background: linear-gradient(120deg, #fff8e8, #ffffff);
+    border-color: #f1dfb4;
+}
+
+.alarm-stat-state .alarm-stat-icon {
+    background: #fff0c9;
+    color: #b7790a;
+}
+
+.alarm-stat-state strong {
+    color: #98630a;
+}
+
+/* 조치내용은 길어도 줄바꿈 */
+.alarm-table td.alarm-note-cell {
+    min-width: 180px;
+    max-width: 300px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+/* 확인됨 카드: 초록색 */
+.alarm-stat-confirmed {
+    background: linear-gradient(120deg, #ecfdf3, #ffffff);
+    border-color: #c6ead5;
+}
+
+.alarm-stat-confirmed .alarm-stat-icon {
+    background: #d1fae5;
+    color: #15803d;
+}
+
+.alarm-stat-confirmed strong {
+    color: #15803d;
+}
+
+/* 미확인 카드: 빨간색 */
+.alarm-stat-unconfirmed {
+    background: linear-gradient(120deg, #fff1f2, #ffffff);
+    border-color: #fecdd3;
+}
+
+.alarm-stat-unconfirmed .alarm-stat-icon {
+    background: #ffe4e6;
+    color: #dc2626;
+}
+
+.alarm-stat-unconfirmed strong {
+    color: #dc2626;
+}
+
+/* 카드 아래 안내 문구 */
+.alarm-count-caption {
+    margin: -12px 0 16px;
+    color: #7b879a;
+    font-size: 12px;
+    text-align: right;
+}
+
+/* 검색창 전체 */
+.alarm-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+
+    margin-bottom: 22px;
+    padding: 20px;
+
+    background: white;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+}
+
+/* 검색항목 제목과 입력칸 */
+.alarm-search label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+
+    color: #52637d;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* 입력칸·선택창·버튼 공통 */
+.alarm-search input,
+.alarm-search select,
+.alarm-search button {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 40px;
+    padding: 9px 12px;
+
+    border: 1px solid #dce4ef;
+    border-radius: 7px;
+
+    background: white;
+    color: #26344a;
+    font: inherit;
+    font-size: 13px;
+}
+
+/* 입력칸 선택 시 테두리 */
+.alarm-search input:focus-visible,
+.alarm-search select:focus-visible {
+    outline: 3px solid #bfdbfe;
+    outline-offset: 1px;
+}
+
+/* 발생기간 */
+.alarm-date-range {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.alarm-date-range legend {
+    margin-bottom: 8px;
+    padding: 0;
+
+    color: #52637d;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.alarm-date-range > div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* LOT 입력칸은 남은 공간 사용 */
+.alarm-search-lot {
+    flex: 1;
+    min-width: 180px;
+}
+
+/* 버튼 */
+.alarm-search button {
+    cursor: pointer;
+}
+
+.alarm-search button:hover {
+    background: #edf4ff;
+}
+
+.alarm-search .alarm-search-submit {
+    min-width: 84px;
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+}
+
+.alarm-search .alarm-search-submit:hover {
+    background: #1d4ed8;
+}
+
+.alarm-search button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* 작은 화면에서는 한 줄씩 배치 */
+/* 기존 .alarm-status-summary보다 뒤에 있어야 적용됨 */
+@media (max-width: 600px) {
+    .alarm-status-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .alarm-search {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px;
+    }
+
+    .alarm-search-lot {
+        flex: none;
+        min-width: 0;
+    }
+
+    .alarm-date-range > div {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .alarm-date-range > div > span {
+        text-align: center;
+    }
+}
+/* 상태 배지 공통 */
+.alarm-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 52px;
+    padding: 5px 10px;
+
+    border: 1px solid transparent;
+    border-radius: 6px;
+
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+/* 경고: 주황색 */
+.alarm-badge.alarm-badge-warning {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+}
+
+/* 심각·미확인: 빨간색 */
+.alarm-badge.alarm-badge-danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+/* 확인됨: 초록색 */
+.alarm-badge.alarm-badge-success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+/* 기타·미지정: 회색 */
+.alarm-badge.alarm-badge-neutral {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+    color: #4b5563;
+}
