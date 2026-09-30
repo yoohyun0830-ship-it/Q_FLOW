@@ -1,0 +1,222 @@
+/* ========================================
+   1. 품질관리 페이지 전체
+======================================== */
+.quality-page {
+    width: 100%;
+    padding: 32px;
+    box-sizing: border-box;
+}
+
+
+/* ========================================
+   2. 품질관리 페이지 제목
+======================================== */
+.quality-header {
+    margin-bottom: 28px;
+}
+
+.quality-header h1 {
+    margin: 0 0 8px 0;
+
+    font-size: 26px;
+    font-weight: 700;
+
+    color: #1f2937;
+}
+
+.quality-header p {
+    margin: 0;
+
+    font-size: 14px;
+    color: #6b7280;
+}
+
+
+/* ========================================
+   3. 검색 조건 영역
+======================================== */
+.quality-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 18px;
+    margin-bottom: 20px;
+
+    background-color: #ffffff;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+
+/* 날짜 / 선택창 */
+.quality-filter input,
+.quality-filter select {
+    height: 38px;
+    padding: 0 10px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+
+    background-color: #ffffff;
+    color: #374151;
+
+    font-size: 14px;
+
+    box-sizing: border-box;
+}
+
+
+/* 날짜 사이 ~ */
+.quality-filter span {
+    color: #6b7280;
+}
+
+
+/* ========================================
+   4. 조회 버튼
+======================================== */
+.quality-search-btn {
+    height: 38px;
+    padding: 0 22px;
+
+    border: none;
+    border-radius: 6px;
+
+    background-color: #2563eb;
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+}
+
+.quality-search-btn:hover {
+    background-color: #1d4ed8;
+}
+
+
+/* ========================================
+   5. 품질관리 탭
+======================================== */
+.quality-tabs {
+    display: flex;
+
+    margin-bottom: 20px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+
+/* 탭 버튼 */
+.quality-tabs button {
+    padding: 12px 20px;
+
+    border: none;
+    border-bottom: 2px solid transparent;
+
+    background-color: transparent;
+
+    color: #6b7280;
+
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+
+/* 선택된 탭 */
+.quality-tabs button.active {
+    color: #2563eb;
+
+    border-bottom-color: #2563eb;
+
+    font-weight: 600;
+}
+
+
+/* ========================================
+   6. 품질관리 내용
+======================================== */
+.quality-content {
+    width: 100%;
+}
+
+
+/* ========================================
+   7. 테이블 영역
+======================================== */
+.quality-table-wrap {
+    width: 100%;
+
+    overflow-x: auto;
+
+    background-color: #ffffff;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+
+/* ========================================
+   8. 품질관리 테이블
+======================================== */
+.quality-table {
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+
+/* 테이블 제목 */
+.quality-table th {
+    padding: 14px 12px;
+
+    background-color: #f8fafc;
+
+    border-bottom: 1px solid #e5e7eb;
+
+    color: #4b5563;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    text-align: center;
+
+    white-space: nowrap;
+}
+
+
+/* 테이블 데이터 */
+.quality-table td {
+    padding: 14px 12px;
+
+    border-bottom: 1px solid #f1f5f9;
+
+    color: #374151;
+
+    font-size: 14px;
+
+    text-align: center;
+
+    white-space: nowrap;
+}
+
+
+.quality-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* ========================================
+   9. 조회 데이터가 없을 때
+======================================== */
+.quality-no-data {
+    height: 120px;
+
+    color: #9ca3af !important;
+
+    text-align: center;
+}
