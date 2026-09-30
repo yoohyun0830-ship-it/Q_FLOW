@@ -1,6 +1,6 @@
-*{
+/* *{
     border: 1px solid red;
-}
+} */
 .row1 {
     width: 100%;
     display: flex; /* 자식 요소들을 가로 배치 */
@@ -46,4 +46,3 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.db2_title
