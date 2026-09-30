@@ -1,117 +1,195 @@
-/* ===================== CSS 변수 및 기본 설정 ===================== */
-:root {
-  --bg: #f3f5f8;
-  --card: #ffffff;
-  --border: #e5e7eb;
-  --text: #1f2328;
-  --muted: #6b7280;
-  --primary: #3b82f6;
-}
-
+/* ==========================================
+   대시보드 전체 레이아웃
+   ========================================== */
 .report-page {
-  display: block;
-  width: 100%;
-  max-width: 1400px; /* 전체화면 시 대시보드가 너무 가로로 찢어지지 않도록 한계선 설정 */
-  margin: 0 auto;
-}
-
-/* ===================== 툴바 (필터) ===================== */
-.report-toolbar {
+  padding: 24px;
+  background-color: #f8fafc;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-  align-items: center;
-}
-
-.report-toolbar select,
-.report-toolbar input,
-.report-toolbar button {
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12.5px;
-  background: #fff;
-  color: #374151;
-}
-
-
-.report-toolbar button.primary {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-  cursor: pointer;
-}
-
-/* ===================== 2열 그리드 레이아웃 (가로 배치 강제) ===================== */
-.report-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 무조건 가로 2열 배치 */
-  gap: 16px;
-}
-
-/* 화면 폭이 모바일 수준(768px 이하)으로 아주 좁아질 때만 1열로 변경 */
-@media (max-width: 768px) {
-  .report-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.report-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100vh;
   box-sizing: border-box;
 }
 
-.report-card.mt-16 {
-  margin-top: 16px;
-}
-
-.report-card h3 {
-  font-size: 13.5px;
-  margin: 0 0 12px;
-  color: #374151;
+/* ==========================================
+   상단 검색 & 단위 필터 툴바
+   ========================================== */
+.report-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-/* ===================== 차트 크기 상한선 고정 (핵심) ===================== */
-/* canvas를 직접 지정하기보다 감싸는 wrapper 크기를 고정하는 것이 Chart.js에서 가장 안정적입니다 */
-.chart-wrapper {
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-left span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.toolbar-left input[type="date"] {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.toolbar-left input[type="date"]:focus {
+  border-color: #2563eb;
+}
+
+/* 일별 / 시간별 / LOT별 버튼 스위치 */
+.period-btn-group {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.period-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.period-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.primary-btn {
+  padding: 7px 18px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.primary-btn:hover {
+  background-color: #1d4ed8;
+}
+
+.primary-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   카드 공통 및 반응형 차트 컨테이너 (핵심)
+   ========================================== */
+.chart-wrapper-large {
   position: relative;
   width: 100%;
-  height: 260px; /* 전체화면으로 커져도 차트 높이는 260px로 고정 */
-  max-height: 260px;
+  height: 260px; /* 👈 요 높이를 줄여주시면 창 크기가 대폭 축소됩니다! */
 }
 
-/* ===================== 테이블 ===================== */
+/* 하단 도넛 차트도 약간 아담하게 맞추려면 함께 수정 */
+.chart-wrapper-small {
+  position: relative;
+  width: 100%;
+  height: 220px; /* 기존 280px -> 220px로 조정 */
+}
+
+/* 카드 자체의 아래위 여백(padding)도 조금 줄여주면 더 밀도 있고 깔끔해집니다 */
+.report-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px; /* 기존 20px -> 16px로 약간 축소 */
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.report-card h3 {
+  margin: 0 0 12px 0; /* 제목 아래 여백도 16px -> 12px 축소 */
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* ==========================================
+   하단 2분할 영역 (도넛 차트 1 : 분석 테이블 2)
+   ========================================== */
+.report-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+}
+
+/* 테이블 스타일링 */
+.table-wrapper {
+  overflow-x: auto;
+}
+
 .report-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  text-align: left;
+  font-size: 14px;
 }
 
 .report-table th,
 .report-table td {
-  padding: 8px 6px;
-  text-align: center;
-  border-bottom: 1px solid #eef0f3;
-  color: #374151;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .report-table th {
-  background: #f8f9fb;
-  color: var(--muted);
+  background-color: #f8fafc;
+  color: #475569;
   font-weight: 600;
-  font-size: 11.5px;
 }
 
 .report-empty-state {
   text-align: center;
-  color: #b8bfc9;
-  padding: 34px 0;
-  font-size: 13px;
+  color: #94a3b8;
+  padding: 48px 0 !important;
+}
+
+/* ==========================================
+   반응형 웹 미디어 쿼리 (화면 축소 시)
+   ========================================== */
+@media (max-width: 1024px) {
+  .report-bottom-grid {
+    grid-template-columns: 1fr; /* 하단 영역을 세로 1열로 변경 */
+  }
+
+  .report-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
