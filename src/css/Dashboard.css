@@ -1,7 +1,7 @@
-*{
+/* *{
     border: 1px solid red;
-}
-.row {
+} */
+.row1 {
     width: 100%;
     display: flex; /* 자식 요소들을 가로 배치 */
     gap: 10px;    /* 자식 요소 사이의 간격 지정 (선택 사항) */
@@ -46,27 +46,3 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.waiting{
-    background-color: gray;
-    color: white;
-    font-weight: bold;
-    border-radius: 5px;
-}
-
-.done{
-    background-color: #1d4ed8;
-    color: white;
-    font-weight: bold;
-    border-radius: 5px;
-}
-
-.ing{
-    background-color: green;
-    color: white;
-    font-weight: bold;
-    border-radius: 5px;
-}
-
-.db2_title{
-    font-weight: bolder;
-}
