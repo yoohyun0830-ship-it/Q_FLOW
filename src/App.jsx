@@ -45,11 +45,29 @@ function App() {
 
                     <Route
                         path="/anomaly"
-                        element={<Anomaly />}/>
+                        element={<Anomaly key="overview" />}/>
+                        {/* 조치 내역 */}
+                    <Route
+                        path="/anomaly/actions"
+                        element={<Anomaly key="actions" view="actions" />}/>
 
+                    {/* 제조데이터 관리 메인 */}
                     <Route
                         path="/data"
-                        element={<DataManagement />}/>
+                        element={<DataManagement />}
+                    />
+
+                    {/* LOT별 이력 */}
+                    <Route
+                        path="/data/lots"
+                        element={<DataManagement />}
+                    />
+
+                    {/* 데이터 변경이력 */}
+                    <Route
+                        path="/data/changes"
+                        element={<DataManagement />}
+                    />
 
                     {/* 분석 및 리포트 */}
                     <Route

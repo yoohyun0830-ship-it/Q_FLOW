@@ -1,0 +1,117 @@
+/* ===================== CSS 변수 및 기본 설정 ===================== */
+:root {
+  --bg: #f3f5f8;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --primary: #3b82f6;
+}
+
+.report-page {
+  display: block;
+  width: 100%;
+  max-width: 1400px; /* 전체화면 시 대시보드가 너무 가로로 찢어지지 않도록 한계선 설정 */
+  margin: 0 auto;
+}
+
+/* ===================== 툴바 (필터) ===================== */
+.report-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.report-toolbar select,
+.report-toolbar input,
+.report-toolbar button {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+  background: #fff;
+  color: #374151;
+}
+
+
+.report-toolbar button.primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ===================== 2열 그리드 레이아웃 (가로 배치 강제) ===================== */
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 무조건 가로 2열 배치 */
+  gap: 16px;
+}
+
+/* 화면 폭이 모바일 수준(768px 이하)으로 아주 좁아질 때만 1열로 변경 */
+@media (max-width: 768px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.report-card.mt-16 {
+  margin-top: 16px;
+}
+
+.report-card h3 {
+  font-size: 13.5px;
+  margin: 0 0 12px;
+  color: #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ===================== 차트 크기 상한선 고정 (핵심) ===================== */
+/* canvas를 직접 지정하기보다 감싸는 wrapper 크기를 고정하는 것이 Chart.js에서 가장 안정적입니다 */
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 260px; /* 전체화면으로 커져도 차트 높이는 260px로 고정 */
+  max-height: 260px;
+}
+
+/* ===================== 테이블 ===================== */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.report-table th,
+.report-table td {
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 1px solid #eef0f3;
+  color: #374151;
+}
+
+.report-table th {
+  background: #f8f9fb;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+
+.report-empty-state {
+  text-align: center;
+  color: #b8bfc9;
+  padding: 34px 0;
+  font-size: 13px;
+}
