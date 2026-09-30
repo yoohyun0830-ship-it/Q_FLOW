@@ -3,6 +3,135 @@ import Chart from "chart.js/auto";
 import axios from "axios";
 import "../css/report.css";
 
+// ==========================================
+// 차트 옵션 생성 헬퍼 함수
+// ==========================================
+const getComboChartConfig = ({ labels, passData, rateData }) => {
+  const hasData = labels && labels.length > 0;
+
+  // 불량률 꺾은선 그래프가 막대 그래프 상단으로 깔끔하게 떠오르도록 Y2 축 최대값 동적 계산
+  const maxRate = hasData ? Math.max(...rateData, 0) : 0;
+  const calculatedY1Max = maxRate > 0 ? Math.ceil(maxRate * 2.5) : 10;
+
+  return {
+    data: {
+      labels: hasData ? labels : ["조회 데이터 없음"],
+      datasets: [
+        {
+          type: "bar",
+          label: "생산량 (EA)",
+          data: hasData ? passData : [0],
+
+          backgroundColor: "rgba(59, 130, 246, 0.25)", // 기존 0.75 -> 0.25로 연하게 변경
+          borderColor: "#2563eb",                      // 테두리 선은 또렷한 파란색 유감없이 유지
+          borderWidth: 1.5,                            // 테두리를 1.5px로 살짝 두껍게 설정
+          borderRadius: 6,
+          barThickness: 36,
+          yAxisID: "y",
+          datalabels: {
+            color: "#0f172a", // 아주 진한 슬레이트 블랙 (또는 "#000000")
+            anchor: "end",    // 막대 끝부분에 위치
+            align: "top",     // 막대 상단 바깥쪽으로 띄우기 (막대 색상과 완전히 분리하여 더 잘 보이게 설정)
+            font: {
+              weight: "bold", // 글자 두께 굵게
+              size: 13,       // 폰트 크기
+            },
+          },
+        },
+        {
+          type: "line",
+          label: "불량률 (%)",
+          data: hasData ? rateData : [0],
+          borderColor: "#ef4444",
+          backgroundColor: "#ef4444",
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderDash: [4, 4],
+          tension: 0.3,
+          yAxisID: "y1",
+          datalabels: {
+            color: "#0f172a", // 아주 진한 슬레이트 블랙 (또는 "#000000")
+            anchor: "end",    // 막대 끝부분에 위치
+            align: "top",     // 막대 상단 바깥쪽으로 띄우기 (막대 색상과 완전히 분리하여 더 잘 보이게 설정)
+            font: {
+              weight: "bold", // 글자 두께 굵게
+              size: 13,       // 폰트 크기
+            },
+          },
+          
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false, // 창 크기 조절 시 비율 깨짐 방지 핵심
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
+      plugins: {
+        legend: { position: "top", align: "end" },
+        tooltip: {
+          padding: 10,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}${ctx.datasetIndex === 1 ? "%" : " EA"}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+        },
+        y: {
+          type: "linear",
+          position: "left",
+          beginAtZero: true,
+          title: { display: true, text: "생산량 (EA)", font: { size: 12, weight: "bold" } },
+        },
+        y1: {
+          type: "linear",
+          position: "right",
+          beginAtZero: true,
+          min: 0,
+          max: calculatedY1Max, // 동적 최대값 적용으로 꺾은선과 막대 겹침 문제 해결
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: "불량률 (%)", font: { size: 12, weight: "bold" } },
+          ticks: { callback: (val) => `${val}%` },
+        },
+      },
+    },
+  };
+};
+
+const getDoughnutChartConfig = ({ totalPass, totalFail }) => {
+  const hasData = totalPass > 0 || totalFail > 0;
+
+  return {
+    type: "doughnut",
+    data: {
+      labels: hasData ? ["양품 (ACCEPTED)", "불량 (REJECTED)"] : ["데이터 없음"],
+      datasets: [
+        {
+          data: hasData ? [totalPass, totalFail] : [1],
+          backgroundColor: hasData ? ["#22c55e", "#ef4444"] : ["#e5e7eb"],
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" },
+      },
+    },
+  };
+};
+
+// ==========================================
+// 메인 컴포넌트
+// ==========================================
 export default function ReportPage() {
   const chartRef1 = useRef(null);
   const chartRef2 = useRef(null);
@@ -15,7 +144,7 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchDataAndInitChart();
+    fetchSummaryData("일별", startDate, endDate);
 
     return () => {
       if (chartInstance1.current) chartInstance1.current.destroy();
@@ -23,266 +152,128 @@ export default function ReportPage() {
     };
   }, []);
 
-  const fetchDataAndInitChart = async (customStart, customEnd) => {
+  // API 수신 및 차트 데이터 갱신
+  const fetchSummaryData = async (type = periodType, start = startDate, end = endDate) => {
     try {
       setLoading(true);
-      const response = await axios.get("http://localhost:8080/mask/filling-packagings");
-      const rawData = response.data;
 
-      if (!rawData || rawData.length === 0) {
+      let groupBy = "daily";
+      if (type === "시간별") groupBy = "hourly";
+      if (type === "LOT별") groupBy = "lot";
+
+      const response = await axios.get("http://localhost:8080/mask/filling-packagings/summary", {
+        params: { groupBy, startDate: start, endDate: end },
+      });
+
+      const summaryList = response.data;
+
+      if (!summaryList || summaryList.length === 0) {
         renderCharts({ labels: [], passData: [], rateData: [], totalPass: 0, totalFail: 0 });
         return;
       }
 
-      let reqStart = customStart;
-      let reqEnd = customEnd;
+      const labels = summaryList.map((item) => item.timeGroup);
+      const passData = summaryList.map((item) => item.passCount);
+      const rateData = summaryList.map((item) => item.defectRate);
 
-      if (!reqStart || !reqEnd) {
-        const dates = rawData
-          .map((item) => extractFullTimestamp(item.timestamp || item.created_at || item.createdAt))
-          .filter(Boolean)
-          .sort();
+      const totalPass = passData.reduce((acc, cur) => acc + cur, 0);
+      const totalFail = summaryList.map((item) => item.failCount).reduce((acc, cur) => acc + cur, 0);
 
-        if (dates.length > 0) {
-          reqStart = dates[0].split(" ")[0];
-          reqEnd = dates[dates.length - 1].split(" ")[0];
-
-          setStartDate(reqStart);
-          setEndDate(reqEnd);
-        }
-      }
-
-      // 시간대별(구간별) 집계 데이터 생성
-      const intervalSummary = processIntervalData(rawData, reqStart, reqEnd);
-      renderCharts(intervalSummary);
+      renderCharts({ labels, passData, rateData, totalPass, totalFail });
     } catch (error) {
-      console.error("데이터 조회 실패:", error);
+      console.error("차트 데이터 조회 실패:", error);
       renderCharts({ labels: [], passData: [], rateData: [], totalPass: 0, totalFail: 0 });
     } finally {
       setLoading(false);
     }
   };
 
-  const extractFullTimestamp = (rawDate) => {
-    if (!rawDate) return null;
-    let str = rawDate.toString().replace("T", " ");
-    if (str.includes(".")) {
-      str = str.split(".")[0];
-    }
-    return str;
-  };
-
-  // [핵심 Logic] 초단위 데이터를 시간대/분 단위 구간(Interval)으로 그룹핑
-  const processIntervalData = (dtoList, start, end) => {
-    const intervalMap = {};
-    let totalPass = 0;
-    let totalFail = 0;
-
-    dtoList.forEach((item) => {
-      const timeStr = extractFullTimestamp(item.timestamp || item.created_at || item.createdAt);
-      if (!timeStr) return;
-
-      const dateOnly = timeStr.split(" ")[0];
-      if (start && dateOnly < start) return;
-      if (end && dateOnly > end) return;
-
-      // 1. 시간 단위 키 생성 ("2023-01-12 23:00" 형태 - 시 단위 집계)
-      // 만약 10분 단위 집계를 원하시면 timeStr.substring(0, 15) + "0" 으로 변경 가능
-      const timeKey = timeStr.substring(0, 13) + ":00"; 
-
-      if (!intervalMap[timeKey]) {
-        intervalMap[timeKey] = { passCount: 0, failCount: 0 };
-      }
-
-      const disposition = (item.finalDisposition || item.final_disposition || "").toString().toUpperCase();
-      const isPass = disposition.includes("ACCEPTED") || disposition.includes("PASS") || disposition.includes("OK");
-
-      if (isPass) {
-        intervalMap[timeKey].passCount += 1;
-        totalPass += 1;
-      } else {
-        intervalMap[timeKey].failCount += 1;
-        totalFail += 1;
-      }
-    });
-
-    const labels = Object.keys(intervalMap).sort();
-    
-    // 해당 시간대에 생산된 양품 수량
-    const passData = labels.map((key) => intervalMap[key].passCount);
-
-    // 해당 시간대의 구간 불량률 (%)
-    const rateData = labels.map((key) => {
-      const pass = intervalMap[key].passCount;
-      const fail = intervalMap[key].failCount;
-      const total = pass + fail;
-      return total > 0 ? Number(((fail / total) * 100).toFixed(2)) : 0;
-    });
-
-    return { labels, passData, rateData, totalPass, totalFail };
-  };
-
-  const handleSearch = () => {
-    fetchDataAndInitChart(startDate, endDate);
-  };
-
-  // [차트 렌더링: 막대 + 꺾은선 콤보 차트]
+  // 차트 생성 및 인스턴스 관리
   const renderCharts = ({ labels, passData, rateData, totalPass, totalFail }) => {
     if (chartRef1.current) {
       if (chartInstance1.current) chartInstance1.current.destroy();
-
-      const hasData = labels && labels.length > 0;
-
-      chartInstance1.current = new Chart(chartRef1.current, {
-        data: {
-          labels: hasData ? labels : ["조회 데이터 없음"],
-          datasets: [
-            {
-              type: "bar", // 생산량은 시간대별 막대(Bar)로 표시
-              label: "시간당 생산량 (EA)",
-              data: hasData ? passData : [0],
-              backgroundColor: "rgba(59, 130, 246, 0.7)",
-              borderColor: "#3b82f6",
-              borderRadius: 4,
-              yAxisID: "y",
-            },
-            {
-              type: "line", // 불량률은 꺾은선(Line)으로 표시
-              label: "시간당 불량률 (%)",
-              data: hasData ? rateData : [0],
-              borderColor: "#ef4444",
-              backgroundColor: "#ef4444",
-              borderDash: [3, 3],
-              tension: 0.2,
-              yAxisID: "y1",
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: {
-                maxRotation: 45,
-                minRotation: 45,
-                autoSkip: true,
-                maxTicksLimit: 15,
-              },
-            },
-            y: {
-              type: "linear",
-              position: "left",
-              beginAtZero: true,
-              title: { display: true, text: "시간당 생산량 (EA)" },
-            },
-            y1: {
-              type: "linear",
-              position: "right",
-              beginAtZero: true,
-              suggestedMax: 5,
-              grid: { drawOnChartArea: false },
-              title: { display: true, text: "불량률 (%)" },
-            },
-          },
-        },
-      });
+      chartInstance1.current = new Chart(chartRef1.current, getComboChartConfig({ labels, passData, rateData }));
     }
 
     if (chartRef2.current) {
       if (chartInstance2.current) chartInstance2.current.destroy();
-
-      const hasData = totalPass > 0 || totalFail > 0;
-
-      chartInstance2.current = new Chart(chartRef2.current, {
-        type: "doughnut",
-        data: {
-          labels: hasData ? ["양품 (ACCEPTED)", "불량 (REJECTED)"] : ["데이터 없음"],
-          datasets: [
-            {
-              data: hasData ? [totalPass, totalFail] : [1],
-              backgroundColor: hasData ? ["#22c55e", "#ef4444"] : ["#e5e7eb"],
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: "bottom" } },
-        },
-      });
+      chartInstance2.current = new Chart(chartRef2.current, getDoughnutChartConfig({ totalPass, totalFail }));
     }
   };
 
   return (
     <div className="report-page">
+      {/* 툴바 */}
       <div className="report-toolbar">
-        <span>기간</span>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-        <span>~</span>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
-
-        <div className="period-btn-group">
-          {["일별", "주별", "월별"].map((type) => (
-            <button
-              key={type}
-              className={`period-btn ${periodType === type ? "active" : ""}`}
-              onClick={() => setPeriodType(type)}
-            >
-              {type}
-            </button>
-          ))}
+        <div className="toolbar-left">
+          <span>조회 기간:</span>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <span>~</span>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
 
-        <button className="primary" onClick={handleSearch} disabled={loading}>
-          {loading ? "조회 중..." : "조회"}
-        </button>
+        <div className="toolbar-right">
+          <div className="period-btn-group">
+            {["일별", "시간별", "LOT별"].map((type) => (
+              <button
+                key={type}
+                className={`period-btn ${periodType === type ? "active" : ""}`}
+                onClick={() => {
+                  setPeriodType(type);
+                  fetchSummaryData(type, startDate, endDate);
+                }}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          <button className="primary-btn" onClick={() => fetchSummaryData(periodType, startDate, endDate)} disabled={loading}>
+            {loading ? "조회 중..." : "조회"}
+          </button>
+        </div>
       </div>
 
-      <div className="report-grid">
-        <div className="report-card">
-          <h3>시간대별 구간 생산량 및 불량률 추이</h3>
-          <div className="chart-wrapper">
-            <canvas ref={chartRef1}></canvas>
-          </div>
+      {/* 1. 상단 메인 추이 차트 (100% 가로 전체 폭 활용) */}
+      <div className="report-card">
+        <h3>{periodType} 기준 생산량 및 불량률 추이</h3>
+        <div className="chart-wrapper-large">
+          <canvas ref={chartRef1}></canvas>
         </div>
+      </div>
 
+      {/* 2. 하단 2분할 영역 (도넛 차트 & 분석 테이블) */}
+      <div className="report-bottom-grid">
         <div className="report-card">
           <h3>전체 양품 / 불량 비율</h3>
-          <div className="chart-wrapper">
+          <div className="chart-wrapper-small">
             <canvas ref={chartRef2}></canvas>
           </div>
         </div>
-      </div>
 
-      <div className="report-card mt-16">
-        <h3>원인 후보 분석 (정상 vs 불량 공정조건 비교)</h3>
-        <table className="report-table">
-          <thead>
-            <tr>
-              <th>공정조건</th>
-              <th>정상 평균</th>
-              <th>불량 평균</th>
-              <th>차이</th>
-              <th>확인 우선도</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={5} className="report-empty-state">
-                {loading ? "데이터를 불러오는 중입니다..." : "비교할 데이터가 없습니다"}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="report-card">
+          <h3>원인 후보 분석 (정상 vs 불량 공정조건 비교)</h3>
+          <div className="table-wrapper">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>공정조건</th>
+                  <th>정상 평균</th>
+                  <th>불량 평균</th>
+                  <th>차이</th>
+                  <th>확인 우선도</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={5} className="report-empty-state">
+                    {loading ? "데이터를 불러오는 중입니다..." : "비교할 데이터가 없습니다"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
