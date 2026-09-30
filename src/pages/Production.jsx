@@ -6,26 +6,26 @@ import "../css/production.css";
 
 export default function Production(){
 
-     // 현재 선택된 탭 저장
-     // 처음 페이지에 들어오면 LOT 목록 탭을 선택
-     const [tab, setTab] = useState("lot");
+    // 현재 선택된 탭 저장
+    // 처음 페이지에 들어오면 LOT 목록 탭을 선택
+    const [tab, setTab] = useState("lot");
 
-     // Spring에서 받아온 생산 LOT 목록 저장
-     const [batches, setBatches] = useState([]);
+    // Spring에서 받아온 생산 LOT 목록 저장
+    const [batches, setBatches] = useState([]);
 
-     // Spring에서 받아온 원료 칭량이력 저장
-     const [materials, setMaterials] = useState([]);
+    // Spring에서 받아온 원료 칭량이력 저장
+    const [materials, setMaterials] = useState([]);
 
-     // 상세조회한 LOT 하나를 저장
-     const [selectedBatch, setSelectedBatch] = useState(null);
+    // 상세조회한 LOT 하나를 저장
+    const [selectedBatch, setSelectedBatch] = useState(null);
 
-     // 사용자가 선택한 생산 상태
-     const [statusFilter, setStatusFilter] = useState("all");
+    // 사용자가 선택한 생산 상태
+    const [statusFilter, setStatusFilter] = useState("all");
 
-     // 조회 버튼을 눌렀을 때 실제로 적용되는 생산 상태
-     const [searchStatus, setSearchStatus] = useState("all");
+    // 조회 버튼을 눌렀을 때 실제로 적용되는 생산 상태
+    const [searchStatus, setSearchStatus] = useState("all");
 
-     // 사용자가 선택한 조회 시작일
+    // 사용자가 선택한 조회 시작일
     const [startDate, setStartDate] = useState("");
 
     // 사용자가 선택한 조회 종료일
@@ -158,17 +158,28 @@ export default function Production(){
             );
         });
 
-    return(
-    // 생산관리 페이지 전체 영역
-    <div className="production-page">
+    // 검색 조건에 맞는 원료 칭량이력 필터링
+        const filteredMaterials = materials.filter((material) => {
 
-            {/* =========================
-                1. 생산관리 페이지 제목
-            ========================== */}
-            <div className="production-header">
-                <h1>생산 관리</h1>
-                <p>생산 계획, LOT, 원료, 실적을 관리합니다.</p>
-            </div>
+        // 검색조건에 의해 남은 LOT 중
+        // 현재 원료 데이터의 batchId와 같은 LOT가 있는지 확인
+        return filteredBatches.some(
+            (batch) => batch.batchId === material.batchId
+        );
+
+        });
+
+    // 생산관리 페이지 전체 영역
+        return(
+        <div className="production-page">
+
+                {/* =========================
+                    1. 생산관리 페이지 제목
+                ========================== */}
+                <div className="production-header">
+                    <h1>생산 관리</h1>
+                    <p>생산 계획, LOT, 원료, 실적을 관리합니다.</p>
+                </div>
 
 
             {/* =========================
@@ -391,10 +402,10 @@ export default function Production(){
 
                             <tbody>
 
-                                {materials.length > 0 ? (
+                                {filteredMaterials.length > 0 ? (
 
                                     // 원료 칭량 데이터 반복 출력
-                                    materials.map((material, index) => (
+                                    filteredMaterials.map((material, index) => (
 
                                         <tr key={material.dispenseId}>
 
@@ -494,9 +505,9 @@ export default function Production(){
                             <tbody>
 
                                 {/* batches 데이터가 존재하면 생산 실적 출력 */}
-                                {batches.length > 0 ? (
+                                {filteredBatches.length > 0 ? (
 
-                                    batches.map((batch, index) => (
+                                    filteredBatches.map((batch, index) => (
 
                                         <tr key={batch.batchId}>
 
@@ -732,3 +743,5 @@ export default function Production(){
                     </div>
                 );
             }
+
+            
