@@ -220,3 +220,319 @@
 
     text-align: center;
 }
+
+/* ========================================
+   10. 품질검사 결과 표시
+======================================== */
+
+/* 합격 */
+.quality-result-pass {
+    display: inline-block;
+
+    padding: 5px 12px;
+
+    border-radius: 20px;
+
+    background-color: #dcfce7;
+    color: #15803d;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+
+/* 불합격 */
+.quality-result-fail {
+    display: inline-block;
+
+    padding: 5px 12px;
+
+    border-radius: 20px;
+
+    background-color: #fee2e2;
+    color: #dc2626;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+/* ========================================
+   11. 상세조회 버튼
+======================================== */
+.quality-detail-btn {
+    padding: 6px 14px;
+
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+
+    background-color: #ffffff;
+    color: #2563eb;
+
+    font-size: 13px;
+    font-weight: 500;
+
+    cursor: pointer;
+}
+
+.quality-detail-btn:hover {
+    background-color: #eff6ff;
+}
+
+
+/* ========================================
+   12. 상세조회 모달 배경
+======================================== */
+.quality-modal-overlay {
+    position: fixed;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background-color: rgba(0, 0, 0, 0.4);
+
+    z-index: 1000;
+}
+
+
+/* ========================================
+   13. 상세조회 모달
+======================================== */
+.quality-modal {
+    width: 700px;
+    max-width: 90%;
+
+    max-height: 85vh;
+    overflow-y: auto;
+
+    background-color: #ffffff;
+
+    border-radius: 10px;
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+
+/* ========================================
+   14. 모달 상단
+======================================== */
+.quality-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    padding: 22px 24px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.quality-modal-header h2 {
+    margin: 0 0 5px 0;
+
+    color: #1f2937;
+
+    font-size: 20px;
+}
+
+.quality-modal-header p {
+    margin: 0;
+
+    color: #6b7280;
+
+    font-size: 13px;
+}
+
+.quality-modal-close {
+    border: none;
+
+    background-color: transparent;
+
+    color: #6b7280;
+
+    font-size: 26px;
+
+    cursor: pointer;
+}
+
+.quality-modal-close:hover {
+    color: #111827;
+}
+
+
+/* ========================================
+   15. 상세정보 영역
+======================================== */
+.quality-detail-section {
+    padding: 20px 24px;
+
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.quality-detail-section h3 {
+    margin: 0 0 16px 0;
+
+    color: #374151;
+
+    font-size: 15px;
+    font-weight: 600;
+}
+
+
+/* 2열 */
+.quality-detail-grid {
+    display: grid;
+
+    grid-template-columns: repeat(2, 1fr);
+
+    gap: 16px;
+}
+
+
+/* 각각의 검사 정보 */
+.quality-detail-item {
+    padding: 14px;
+
+    background-color: #f8fafc;
+
+    border-radius: 7px;
+}
+
+.quality-detail-item span {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: #6b7280;
+
+    font-size: 12px;
+}
+
+.quality-detail-item strong {
+    display: block;
+
+    color: #1f2937;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+/* 품질 기준 */
+.quality-detail-item small {
+    display: block;
+
+    margin-top: 6px;
+
+    color: #6b7280;
+
+    font-size: 12px;
+}
+
+
+/* ========================================
+   16. 비고
+======================================== */
+.quality-detail-note {
+    padding: 14px;
+
+    background-color: #f8fafc;
+
+    border-radius: 7px;
+
+    color: #374151;
+
+    font-size: 14px;
+}
+
+
+/* ========================================
+   17. 모달 하단
+======================================== */
+.quality-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+
+    padding: 18px 24px;
+}
+
+.quality-modal-footer button {
+    padding: 8px 20px;
+
+    border: none;
+    border-radius: 6px;
+
+    background-color: #2563eb;
+    color: #ffffff;
+
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+.quality-modal-footer button:hover {
+    background-color: #1d4ed8;
+}
+
+/* ========================================
+   완제품 검사 페이지네이션
+======================================== */
+.quality-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: 16px;
+
+    padding: 20px;
+}
+
+.quality-pagination button {
+    padding: 7px 16px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+
+    background-color: #ffffff;
+    color: #374151;
+
+    font-size: 13px;
+
+    cursor: pointer;
+}
+
+.quality-pagination button:hover:not(:disabled) {
+    background-color: #f3f4f6;
+}
+
+.quality-pagination button:disabled {
+    color: #9ca3af;
+    background-color: #f9fafb;
+
+    cursor: not-allowed;
+}
+
+.quality-pagination span {
+    color: #374151;
+
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* 완제품 검사 테이블 한 화면에 맞추기 */
+.quality-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.quality-table th,
+.quality-table td {
+    padding: 10px 5px;
+    font-size: 12px;
+    white-space: normal;
+    word-break: break-word;
+}
