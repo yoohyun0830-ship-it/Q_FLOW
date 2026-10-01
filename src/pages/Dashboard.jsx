@@ -5,12 +5,13 @@ import icon1 from "./img/erp_dashboard_production_clean.png";
 import icon2 from "./img/erp_dashboard_quality_clean.png";
 import icon3 from "./img/erp_dashboard_alert_clean.png";
 import DashboardChart from "./DashboardChart";
+import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const [packagingList, setPackagingList] = useState([]);
   const [batchesList, setBatchesList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterOption, setFilterOption] = useState("timely");
+  const [filterOption, setFilterOption] = useState("nowLot");
 
   useEffect(() => {
     setLoading(true);
@@ -42,59 +43,43 @@ export default function Dashboard() {
     return acc + Number(defect);
   }, 0);
 
-  // 전체 평균 불량률 (%)
   const avgDefectRate =
     totalBatchTargetUnits > 0
       ? (totalBatchDefectUnits / totalBatchTargetUnits) * 100
       : 0;
 
-  // 가장 최근 LOT 추출
+  // 가장 최근 LOT 및 LOT ID 추출 (id, batchNo, batchCode 등 안전하게 방어)
   const latestBatch = batchesList.length > 0 ? batchesList[batchesList.length - 1] : null;
-  const latestBatchId = latestBatch ? (latestBatch.batchId || latestBatch.batch_id) : null;
+  const latestBatchId = latestBatch 
+    ? (latestBatch.batchId || latestBatch.batch_id || latestBatch.id || latestBatch.batchNo || '') 
+    : '';
 
-  // filling_packagings에서 가장 최근 LOT에 해당하는 데이터 필터링
   const latestPackagingData = packagingList.filter((item) => {
     if (!latestBatchId) return true;
     const itemBatchId = item.batchId || item.batch_id;
     return itemBatchId === latestBatchId;
   });
 
-  // 가장 최근 LOT의 양품 수
   const actualCount = latestPackagingData.filter((item) => {
     const disposition = item.finalDisposition || item.final_disposition || "";
     return disposition.includes("ACCEPTED");
   }).length;
 
-  // 가장 최근 LOT의 불량품 수
   const defectCount = latestPackagingData.filter((item) => {
     const disposition = item.finalDisposition || item.final_disposition || "";
     return disposition.includes("REJECTED");
   }).length;
 
-  // 가장 최근 LOT의 총 수량
   const totalInspected = latestPackagingData.length;
+  const latestDefectRate = totalInspected > 0 ? (defectCount / totalInspected) * 100 : 0;
+  const diffVal = latestDefectRate - avgDefectRate;
+  const defectRateDiffFormatted = diffVal > 0 ? `+${diffVal.toFixed(2)}` : diffVal.toFixed(2);
 
-    // 최신 LOT의 불량률 및 평균 대비 차이 계산
-    const latestDefectRate =
-    totalInspected > 0 ? (defectCount / totalInspected) * 100 : 0;
+  const targetUnits = 3000;
+  const targetRate = targetUnits > 0 ? ((actualCount / targetUnits) * 100).toFixed(1) : "0.0";
+  const anomalyCount = 0;
+  const anomalyTargetRate = "0.0";
 
-    // 평균 불량률 대비 차이 (+ 또는 - %)
-    const diffVal = latestDefectRate - avgDefectRate;
-    const defectRateDiffFormatted =
-    diffVal > 0
-      ? `+${diffVal.toFixed(2)}`
-      : diffVal.toFixed(2);
-
-// 일일 목표 제조 수량은 3000개
-const targetUnits = 3000;
-const targetRate = targetUnits > 0 ? ((actualCount / targetUnits) * 100).toFixed(1) : "0.0";
-const defectRate = totalInspected > 0 ? ((defectCount / totalInspected) * 100).toFixed(2) : "0.00";
-  
-// **이상건수 추후 수정
-const anomalyCount = 0;
-const anomalyTargetRate = "0.0";
-
-// **상태 추후 수정 필요
   const processStages = [
     { id: "1", name: "① 원료 칭량", status: "done", text: `${batchesList.length} / ${batchesList.length} 배치` },
     { id: "2", name: "② 가열, 혼합", status: "done", text: `${batchesList.length} / ${batchesList.length} 배치` },
@@ -186,35 +171,35 @@ const anomalyTargetRate = "0.0";
             {loading ? (
               <div>로딩 중...</div>
             ) : (
-              <DashboardChart 
-                packagingData={packagingList} 
-                batchesData={batchesList} 
+              <DashboardChart
+                batchId={latestBatchId}
                 filterOption={filterOption} 
               />
             )}
           </div>
         </div>
-
-        <div className="dash_board2">
-          <div className="db2_title">실시간 공정 현황</div>
-          <div>
-            <table>
-              <tbody>
-                {processStages.map((stage) => (
-                  <tr key={stage.id}>
-                    <td>{stage.name}</td>
-                    <td>
-                      <div className={stage.status}>
-                        {stage.status === "done" ? "완료" : stage.status === "ing" ? "진행" : "대기"}
-                      </div>
-                    </td>
-                    <td>{stage.text}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <Link to="/process">
+          <div className="dash_board2">
+            <div className="db2_title">실시간 공정 현황</div>
+            <div>
+              <table>
+                <tbody>
+                  {processStages.map((stage) => (
+                    <tr key={stage.id}>
+                      <td>{stage.name}</td>
+                      <td>
+                        <div className={stage.status}>
+                          {stage.status === "done" ? "완료" : stage.status === "ing" ? "진행" : "대기"}
+                        </div>
+                      </td>
+                      <td>{stage.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );
