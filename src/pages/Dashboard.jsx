@@ -158,7 +158,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="row">
+      <div className="row2">
         <div className="dash_board2">
           <div className="db2_header">
             <div className="db2_title">생산량 및 불량률 추이</div>
@@ -178,10 +178,10 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-        <Link to="/process">
+        <Link to="/process" className="link_box">
           <div className="dash_board2">
             <div className="db2_title">실시간 공정 현황</div>
-            <div>
+            <div className="table_box">
               <table>
                 <tbody>
                   {processStages.map((stage) => (
