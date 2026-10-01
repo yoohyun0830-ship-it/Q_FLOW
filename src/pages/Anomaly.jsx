@@ -1,444 +1,327 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
-import "../css/anomaly.css";
 
-// Spring Controller 주소
+import "../css/anomaly.css";
+import "../css/alarmManagement.css";
+
 const API_URL = "http://localhost:8080/mask/anomaly-events";
-// 빈 값 표시
-function displayValue(value) {
-    if (value === null || value === undefined || value === "") {return "-";}
-    return String(value);
+
+function display(value) {
+    return value === null || value === undefined || value === ""
+        ? "-": String(value);}
+
+function dateText(value) {
+    return value
+        ? String(value).replace("T", " ").slice(0, 19): "-";}
+
+function severityText(value) {
+    if (value === "ALM_SEV_NORMAL") return "정상";
+    if (value === "ALM_SEV_WARN") return "주의";
+    if (value === "ALM_SEV_CRIT") return "심각";
+    return display(value);
 }
-// 날짜 표시
-function displayDate(value) {
-    if (!value) return "-";
-    return value.replace("T", " ").slice(0, 19);
-}
-// 상태 표시
-function displayStatus(value) {
-    if (value === "ACKNOWLEDGED") {
-        return "확인됨";
-    }
-    // 실제 DB의 미확인 코드와 맞춰 주세요.
-    if (value === "UNACKNOWLEDGED") {
-        return "미확인";
-    }
+
+function statusText(value) {
+    if (value === "ACKNOWLEDGED") return "확인됨";
+    if (value === "UNACKNOWLEDGED") return "미확인";
     return value || "상태 미지정";
 }
-// 심각도 표시
-function displaySeverity(value) {
-    switch (value) {
-        case "ALM_SEV_WARN":
-            return "경고";
 
-        case "ALM_SEV_CRIT":
-            return "심각";
-
-        default:
-            return displayValue(value);
-    }
-}
-
-// 심각도에 따른 색상
 function severityClass(value) {
-    switch (value) {
-        case "ALM_SEV_WARN":
-            return "alarm-badge-warning";
-
-        case "ALM_SEV_CRIT":
-            return "alarm-badge-danger";
-
-        default:
-            return "alarm-badge-neutral";
-    }
+    if (value === "ALM_SEV_NORMAL") {return "ae-badge ae-success";}
+    if (value === "ALM_SEV_WARN") {return "ae-badge ae-warning";}
+    if (value === "ALM_SEV_CRIT") {return "ae-badge ae-danger";}
+    return "ae-badge";
 }
 
-// 조치상태에 따른 색상
-function actionStatusClass(value) {
-    switch (value) {
-        case "ACKNOWLEDGED":
-            return "alarm-badge-success";
-
-        case "UNACKNOWLEDGED":
-            return "alarm-badge-danger";
-
-        default:
-            return "alarm-badge-neutral";
-    }
+function statusClass(value) {
+    if (value === "ACKNOWLEDGED") return "ae-badge ae-success";
+    if (value === "UNACKNOWLEDGED") return "ae-badge ae-danger";
+    return "ae-badge";
 }
-// Axios 오류 메시지
-function getErrorMessage(error) {
+
+function errorText(error) {
     const status = error.response?.status;
-    if (status === 404) {
-        return "요청한 주소 또는 알람 데이터를 찾을 수 없습니다.";
-    }
-    if (status) {
-        return `조회에 실패했습니다. HTTP ${status}`;
-    }
-    return "서버에 연결하지 못했습니다. Spring 실행 상태와 CORS 설정을 확인해 주세요.";
+    if (status === 400) {return "검색조건을 확인해 주세요.";}
+    if (status === 404) {return "요청한 주소 또는 알람 기록을 찾을 수 없습니다.";}
+    if (status) {return `조회에 실패했습니다. HTTP ${status}`;}
+    if (error.isAxiosError) {return "서버에 연결하지 못했습니다. Spring 실행 상태와 CORS 설정을 확인해 주세요.";}
+    return error.message || "조회 중 오류가 발생했습니다.";
 }
-// 상세정보 한 줄
-function DetailRow({ label, value }) {
-    return (
-        <div className="alarm-detail-row">
-            <dt>{label}</dt>
-            <dd>{displayValue(value)}</dd>
-        </div>
-    );
-}
+
 export default function Anomaly() {
-    // 현재 주소로 화면 구분
     const { pathname } = useLocation();
     const isActions = pathname.replace(/\/+$/, "") === "/anomaly/actions";
 
-    // 전체조회 결과
+    // 검색 결과 전체
     const [alarms, setAlarms] = useState([]);
-
-    // 선택한 PK와 상세조회 결과
-    const [selectedId, setSelectedId] = useState(null);
-    const [selectedAlarm, setSelectedAlarm] = useState(null);
-
-    // 전체조회 상태
-    const [listLoading, setListLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [listError, setListError] = useState("");
+    const [inputError, setInputError] = useState("");
 
-    // 상세조회 상태
+    // 입력 중인 검색조건
+    const [draft, setDraft] = useState({
+        startDate: "",
+        endDate: "",
+        severity: "",
+        actionStatus: "",
+        batchIdKeyword: "",
+        processCode: "",
+        anomalyType: "",
+        userId: ""
+    });
+
+    // 조회 버튼으로 적용한 검색조건
+    const [condition, setCondition] = useState({
+        startDate: "",
+        endDate: "",
+        severity: "",
+        actionStatus: "",
+        batchIdKeyword: "",
+        processCode: "",
+        anomalyType: "",
+        userId: ""
+    });
+
+    // 리액트 화면에서만 사용하는 페이지 번호
+    const [page, setPage] = useState(0);
+
+    // 한 페이지당 표시 개수 고정
+    const pageSize = 20;
+
+    // 상세조회
+    const [selectedId, setSelectedId] = useState(null);
+    const [detail, setDetail] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState("");
 
-    // 새로고침
-    const [reload, setReload] = useState(0);
-
-    // 검색창에 입력 중인 값
-    const [draftFilters, setDraftFilters] = useState({
-        startDate: "",
-        endDate: "",
-        severity: "",
-        actionStatus: "",
-        batchId: ""
-    });
-
-    // 조회 버튼을 눌렀을 때 실제 적용하는 값
-    const [filters, setFilters] = useState({
-        startDate: "",
-        endDate: "",
-        severity: "",
-        actionStatus: "",
-        batchId: ""
-    });
-
-    // --------------------------------------------------
-    // 1. 전체조회
-    // --------------------------------------------------
+    // 조건검색
+    // page는 의존성에 없으므로 페이지 이동 시 다시 요청하지 않음
     useEffect(() => {
         const controller = new AbortController();
-
         async function fetchAlarms() {
-            setListLoading(true);
+            setLoading(true);
             setListError("");
             setAlarms([]);
-
-            setSelectedId(null);
-            setSelectedAlarm(null);
-            setDetailLoading(false);
-            setDetailError("");
-
             try {
                 const response = await axios.get(API_URL, {
-                    signal: controller.signal
+                    signal: controller.signal,
+                    params: {
+                        startDate: condition.startDate || undefined,
+                        endDate: condition.endDate || undefined,
+                        severity: condition.severity || undefined,
+                        actionStatus: condition.actionStatus || undefined,
+                        batchIdKeyword:
+                            condition.batchIdKeyword || undefined,
+                        processCode: condition.processCode || undefined,
+                        anomalyType: condition.anomalyType || undefined,
+                        userId:
+                            condition.userId === ""
+                                ? undefined
+                                : Number(condition.userId)
+                    }
                 });
 
                 if (controller.signal.aborted) return;
-
                 if (!Array.isArray(response.data)) {
-                    setListError("전체조회 응답이 배열 형식이 아닙니다.");
-                    return;
-                }
+                    throw new Error("목록 응답이 배열이 아닙니다. 스프링의 List 반환 여부를 확인해 주세요.");}
 
-                setAlarms(response.data);
-
+                // 화면 표시 순서: 발생시간 최신순 → 알람번호 내림차순
+                const sorted = [...response.data].sort((a, b) => {
+                    const dateOrder = String(b.occurredAt || "").localeCompare(String(a.occurredAt || ""));
+                    return dateOrder || String(b.anomalyId).localeCompare( String(a.anomalyId), undefined,{ numeric: true });
+                });
+                setAlarms(sorted);
+                setPage(0);
             } catch (error) {
-                if (!controller.signal.aborted) {
-                    setListError(getErrorMessage(error));
-                }
-
+                if (!controller.signal.aborted) {setListError(errorText(error));}
             } finally {
-                if (!controller.signal.aborted) {
-                    setListLoading(false);
-                }
+                if (!controller.signal.aborted) {setLoading(false);}
             }
         }
-
         fetchAlarms();
+        return () => controller.abort();}, [condition]);
 
-        return () => controller.abort();
-
-    }, [reload, isActions]);
-
-    // --------------------------------------------------
-    // 2. PK 개별조회
-    // --------------------------------------------------
+    // 알람 PK 상세조회
     useEffect(() => {
         if (selectedId === null) return;
-
         const controller = new AbortController();
-
-        async function fetchAlarmDetail() {
+        async function fetchDetail() {
             setDetailLoading(true);
             setDetailError("");
-            setSelectedAlarm(null);
-
+            setDetail(null);
             try {
                 const response = await axios.get(
                     `${API_URL}/${encodeURIComponent(selectedId)}`,
-                    {
-                        signal: controller.signal
-                    }
-                );
-
+                    { signal: controller.signal });
                 if (controller.signal.aborted) return;
-
-                const data = response.data;
-
-                if (!data || data.anomalyId == null) {
-                    setDetailError("개별조회 응답을 확인해 주세요.");
-                    return;
-                }
-
-                setSelectedAlarm(data);
-
+                if (!response.data || response.data.anomalyId == null) {
+                    throw new Error("알람 상세정보의 응답을 확인해 주세요.");}
+                setDetail(response.data);
             } catch (error) {
-                if (!controller.signal.aborted) {
-                    setDetailError(getErrorMessage(error));
-                }
-
+                if (!controller.signal.aborted) {setDetailError(errorText(error));}
             } finally {
-                if (!controller.signal.aborted) {
-                    setDetailLoading(false);
-                }
+                if (!controller.signal.aborted) {setDetailLoading(false);}
             }
         }
-
-        fetchAlarmDetail();
-
-        return () => controller.abort();
-
-    }, [selectedId, isActions]);
-
-    // --------------------------------------------------
-    // 3. 버튼 및 검색 동작
-    // --------------------------------------------------
-
-    // 선택한 상세정보 초기화
-    function clearSelection() {
+        fetchDetail();
+        return () => controller.abort();  }, [selectedId]);
+    function clearDetail() {
         setSelectedId(null);
-        setSelectedAlarm(null);
+        setDetail(null);
         setDetailLoading(false);
         setDetailError("");
     }
 
-    // 상세보기
-    function handleSelect(anomalyId) {
-        if (selectedId === anomalyId) return;
-
-        setSelectedAlarm(null);
-        setDetailError("");
-        setDetailLoading(true);
-        setSelectedId(anomalyId);
+    function handleChange(event) {
+        const { name, value } = event.target;
+        setDraft(previous => ({...previous,[name]: value}));
+        setInputError("");
     }
 
-    // 서버에서 전체 목록 다시 받기
-    function handleRefresh() {
-        clearSelection();
-        setReload(value => value + 1);
-    }
-
-    // 검색창 입력값 변경
-    function updateFilter(name, value) {
-        setDraftFilters(previous => ({
-            ...previous,
-            [name]: value
-        }));
-    }
-
-    // 검색조건 적용
     function handleSearch(event) {
         event.preventDefault();
+        if (
+            draft.startDate &&
+            draft.endDate &&
+            draft.startDate > draft.endDate
+        ) { setInputError("시작일은 종료일보다 늦을 수 없습니다.");return;}
 
-        setFilters({
-            startDate: draftFilters.startDate,
-            endDate: draftFilters.endDate,
-            severity: draftFilters.severity,
-            actionStatus: draftFilters.actionStatus,
-            batchId: draftFilters.batchId.trim()
+        if (draft.userId !== "") {
+            const userId = Number(draft.userId);
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                setInputError(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."); return;
+            }
+        }
+        setInputError("");
+        setPage(0);
+        clearDetail();
+
+        setCondition({
+            ...draft,
+            batchIdKeyword: draft.batchIdKeyword.trim(),
+            processCode: draft.processCode.trim(),
+            anomalyType: draft.anomalyType.trim()
         });
-
-        clearSelection();
     }
 
-    // 검색조건 초기화
-    function handleResetSearch() {
-        setDraftFilters({
+    function handleReset() {
+        const empty = {
             startDate: "",
             endDate: "",
             severity: "",
             actionStatus: "",
-            batchId: ""
-        });
+            batchIdKeyword: "",
+            processCode: "",
+            anomalyType: "",
+            userId: ""
+        };
 
-        setFilters({
-            startDate: "",
-            endDate: "",
-            severity: "",
-            actionStatus: "",
-            batchId: ""
-        });
-
-        clearSelection();
+        setDraft({ ...empty });
+        setCondition({ ...empty });
+        setInputError("");
+        setPage(0);
+        clearDetail();
     }
 
-    // --------------------------------------------------
-    // 4. 검색 선택항목
-    // --------------------------------------------------
+    // 마지막으로 적용한 조건으로 재조회
+    function handleRefresh() {
+        setPage(0);
+        clearDetail();
+        setCondition(previous => ({ ...previous }));
+    }
 
-    // 서버 데이터에 있는 심각도를 중복 없이 추출
-    const severityOptions = [
-        ...new Set(
-            alarms
-                .map(alarm => alarm.severity)
-                .filter(Boolean)
-        )
-    ];
+    function handleSelect(id) {
+        if (id === selectedId) return;
+        setDetail(null);
+        setDetailError("");
+        setDetailLoading(true);
+        setSelectedId(id);
+    }
 
-    // 확인됨·미확인 및 실제 데이터의 다른 상태
-    const statusOptions = [
-        ...new Set([
-            "ACKNOWLEDGED",
-            "UNACKNOWLEDGED",
-            ...alarms
-                .map(alarm => alarm.actionStatus)
-                .filter(Boolean)
-        ])
-    ];
-
-    // --------------------------------------------------
-    // 5. 검색조건에 맞는 목록
-    // --------------------------------------------------
-    const filteredAlarms = alarms.filter(alarm => {
-
-        // 조치 내역 페이지에서는 전체 목록 표시
-        if (isActions) return true;
-
-        const occurredDate =
-            String(alarm.occurredAt || "").slice(0, 10);
-
-        // 시작일
+    // 서버 요청 없이 화면의 페이지 번호만 변경
+    function handlePage(nextPage) {
         if (
-            filters.startDate &&
-            (!occurredDate || occurredDate < filters.startDate)
+            nextPage < 0 ||
+            nextPage >= totalPages ||
+            nextPage === page
         ) {
-            return false;
+            return;
         }
+        clearDetail();
+        setPage(nextPage);
+    }
 
-        // 종료일
-        if (
-            filters.endDate &&
-            (!occurredDate || occurredDate > filters.endDate)
-        ) {
-            return false;
-        }
+    // 검색 결과 전체 기준 카드
+    const totalCount = alarms.length;
+    const acknowledgedCount = alarms.filter(
+        alarm => alarm.actionStatus === "ACKNOWLEDGED").length;
 
-        // 심각도
-        if (
-            filters.severity &&
-            alarm.severity !== filters.severity
-        ) {
-            return false;
-        }
+    const unacknowledgedCount = alarms.filter(
+        alarm => alarm.actionStatus === "UNACKNOWLEDGED").length;
 
-        // 조치상태
-        if (
-            filters.actionStatus &&
-            alarm.actionStatus !== filters.actionStatus
-        ) {
-            return false;
-        }
+    const otherCount = totalCount - acknowledgedCount - unacknowledgedCount;
+    const countUnavailable = loading || Boolean(listError);
 
-        // LOT 번호: 부분 일치 검색
-        if (
-            filters.batchId &&
-            !String(alarm.batchId || "")
-                .toLowerCase()
-                .includes(filters.batchId.toLowerCase())
-        ) {
-            return false;
-        }
+    // 리액트 페이징
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const visibleAlarms = alarms.slice(page * pageSize,(page + 1) * pageSize);
+    const firstNumber = totalCount === 0 ? 0 : page * pageSize + 1;
+    const lastNumber = Math.min((page + 1) * pageSize, totalCount);
 
-        return true;
-    });
+    // 페이지 버튼은 최대 5개씩 표시
+    const pageGroupStart = Math.floor(page / 5) * 5;
+    const pageNumbers = Array.from(
+        {length: Math.min(5,Math.max(0, totalPages - pageGroupStart))},(_, index) => pageGroupStart + index);
 
-    // --------------------------------------------------
-    // 6. 검색 결과 기준 카드 집계
-    // --------------------------------------------------
-    const totalCount = filteredAlarms.length;
-
-    const acknowledgedCount = filteredAlarms.filter(
-        alarm => alarm.actionStatus === "ACKNOWLEDGED"
-    ).length;
-
-    // 실제 DB의 미확인 코드와 맞춰 주세요.
-    const unacknowledgedCount = filteredAlarms.filter(
-        alarm => alarm.actionStatus === "UNACKNOWLEDGED"
-    ).length;
-
-    // 다른 상태 또는 상태 미지정
-    const otherCount =
-        totalCount - acknowledgedCount - unacknowledgedCount;
-
-    const countUnavailable = listLoading || Boolean(listError);
-
-    // --------------------------------------------------
-    // 7. 화면
-    // --------------------------------------------------
+    // 상세정보
+    const detailFields = detail
+        ? [
+            ["알람번호", detail.anomalyId],
+            ["LOT 번호", detail.batchId],
+            ["제품번호", detail.pouchId],
+            ["규칙번호", detail.ruleId],
+            ["원본 알람번호", detail.sourceAlarmId],
+            ["공정코드", detail.processCode],
+            ["이상 유형", detail.anomalyType],
+            ["측정항목", detail.sensorName],
+            ["측정값", detail.measuredValue],
+            ["알람 메시지", detail.alarmMessage],
+            ["발생시간", dateText(detail.occurredAt)],
+            ["해제시간", dateText(detail.resolvedAt)],
+            ["지속시간(초)", detail.durationSec],
+            ["조치 담당자", detail.userId],
+            ["조치내용", detail.actionNote],
+            ["조치시간", dateText(detail.actionTime)],
+            ["데이터 출처", detail.sourceType]
+        ]: [];
     return (
-        <div className="alarm-page">
-
-            {/* 제목 */}
-            <div className="alarm-page-heading">
+        <div className="ae-page">
+            <header className="ae-heading">
                 <div>
-                    <h1>
-                        {isActions ? "조치 내역" : "알람 조치 관리"}
-                    </h1>
-
-                    <p>
-                        {isActions
-                            ? "알람별로 저장된 조치상태와 조치내용을 확인합니다."
-                            : "조건에 맞는 알람을 검색하고 상세정보를 확인합니다."}
-                    </p>
+                    <h1>{isActions ? "조치 내역" : "알람 조치 관리"}</h1>
+                    <p>조건에 맞는 알람을 검색하고 상세정보를 확인합니다.</p>
                 </div>
 
                 <button
                     type="button"
-                    className="alarm-button"
+                    className="ae-button"
                     onClick={handleRefresh}
-                    disabled={listLoading}
-                >
-                    새로고침
+                    disabled={loading}>
+                    ↻ 새로고침
                 </button>
-            </div>
+            </header>
 
-            {/* 상단 카드 */}
-            <div className="alarm-summary alarm-status-summary">
-
-                <div className="alarm-summary-card alarm-stat-card">
-                    <span
-                        className="alarm-stat-icon"
-                        aria-hidden="true"
-                    >
-                        ≡
-                    </span>
-
+            {/* 요약 카드 */}
+            <div className="ae-summary">
+                <div className="ae-stat ae-total">
+                    <span className="ae-icon" aria-hidden="true">≡</span>
                     <div>
                         <span>전체 알람</span>
                         <strong>
@@ -447,14 +330,8 @@ export default function Anomaly() {
                     </div>
                 </div>
 
-                <div className="alarm-summary-card alarm-stat-card alarm-stat-confirmed">
-                    <span
-                        className="alarm-stat-icon"
-                        aria-hidden="true"
-                    >
-                        ✓
-                    </span>
-
+                <div className="ae-stat ae-confirmed">
+                    <span className="ae-icon" aria-hidden="true">✓</span>
                     <div>
                         <span>확인됨</span>
                         <strong>
@@ -463,14 +340,8 @@ export default function Anomaly() {
                     </div>
                 </div>
 
-                <div className="alarm-summary-card alarm-stat-card alarm-stat-unconfirmed">
-                    <span
-                        className="alarm-stat-icon"
-                        aria-hidden="true"
-                    >
-                        !
-                    </span>
-
+                <div className="ae-stat ae-unconfirmed">
+                    <span className="ae-icon" aria-hidden="true">!</span>
                     <div>
                         <span>미확인</span>
                         <strong>
@@ -478,418 +349,382 @@ export default function Anomaly() {
                         </strong>
                     </div>
                 </div>
-
-                {!countUnavailable && otherCount > 0 && (
-                    <div className="alarm-summary-card alarm-stat-card">
-                        <span
-                            className="alarm-stat-icon"
-                            aria-hidden="true"
-                        >
-                            ···
-                        </span>
-
-                        <div>
-                            <span>기타 상태 / 미지정</span>
-                            <strong>{otherCount}</strong>
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* 검색창: 메인 페이지에만 표시 */}
-            {!isActions && (
-                <>
-                    <p className="alarm-count-caption">
-                        검색조건 기준
-                    </p>
+            <p className="ae-count-note">
+                검색조건 기준
+                {!countUnavailable && otherCount > 0
+                    ? ` · 기타·미지정 ${otherCount}건 포함`: ""}
+            </p>
 
-                    <form
-                        className="alarm-search"
-                        onSubmit={handleSearch}
-                    >
-                        <fieldset className="alarm-date-range">
-                            <legend>발생기간</legend>
+            {/* 접히지 않는 검색창 */}
+            <form className="ae-card ae-search" onSubmit={handleSearch}>
+                <h2>검색조건</h2>
 
-                            <div>
-                                <input
-                                    type="date"
-                                    aria-label="발생 시작일"
-                                    value={draftFilters.startDate}
-                                    max={draftFilters.endDate || undefined}
-                                    onChange={event =>
-                                        updateFilter(
-                                            "startDate",
-                                            event.target.value
-                                        )
-                                    }
-                                />
+                {/* 첫 번째 줄 */}
+                <div className="ae-search-row ae-search-first">
+                    <fieldset className="ae-period">
+                        <legend>발생기간</legend>
 
-                                <span>~</span>
-
-                                <input
-                                    type="date"
-                                    aria-label="발생 종료일"
-                                    value={draftFilters.endDate}
-                                    min={draftFilters.startDate || undefined}
-                                    onChange={event =>
-                                        updateFilter(
-                                            "endDate",
-                                            event.target.value
-                                        )
-                                    }
-                                />
-                            </div>
-                        </fieldset>
-
-                        <label>
-                            심각도
-
-                            <select
-                                value={draftFilters.severity}
-                                onChange={event =>
-                                    updateFilter(
-                                        "severity",
-                                        event.target.value
-                                    )
-                                }
-                            >
-                                <option value="">전체</option>
-
-                                {severityOptions.map(value => (
-                                    <option key={value} value={value}>
-                                        {displaySeverity(value)}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label>
-                            조치상태
-
-                            <select
-                                value={draftFilters.actionStatus}
-                                onChange={event =>
-                                    updateFilter(
-                                        "actionStatus",
-                                        event.target.value
-                                    )
-                                }
-                            >
-                                <option value="">전체</option>
-
-                                {statusOptions.map(value => (
-                                    <option key={value} value={value}>
-                                        {displayStatus(value)}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label className="alarm-search-lot">
-                            LOT 번호
-
+                        <div className="ae-date-inputs">
                             <input
-                                type="text"
-                                placeholder="LOT 번호를 입력하세요"
-                                value={draftFilters.batchId}
-                                onChange={event =>
-                                    updateFilter(
-                                        "batchId",
-                                        event.target.value
-                                    )
-                                }
-                            />
-                        </label>
+                                type="date"
+                                name="startDate"
+                                aria-label="발생 시작일"
+                                value={draft.startDate}
+                                onChange={handleChange}/>
+                            <span>~</span>
+                            <input
+                                type="date"
+                                name="endDate"
+                                aria-label="발생 종료일"
+                                value={draft.endDate}
+                                onChange={handleChange}/>
+                        </div>
+                    </fieldset>
 
-                        <button
-                            type="submit"
-                            className="alarm-search-submit"
-                            disabled={countUnavailable}
-                        >
-                            조회
-                        </button>
+                    <label className="ae-field">
+                        <span>심각도</span>
+                        <select
+                            name="severity"
+                            value={draft.severity}
+                            onChange={handleChange}>
+                            <option value="">전체</option>
+                            <option value="ALM_SEV_NORMAL">정상</option>
+                            <option value="ALM_SEV_WARN">주의</option>
+                             <option value="ALM_SEV_CRIT">심각</option>
+                        </select>
+                    </label>
 
+                    <label className="ae-field">
+                        <span>조치상태</span>
+                        <select
+                            name="actionStatus"
+                            value={draft.actionStatus}
+                            onChange={handleChange}>
+                            <option value="">전체</option>
+                            <option value="ACKNOWLEDGED">확인됨</option>
+                            <option value="UNACKNOWLEDGED">미확인</option>
+                        </select>
+                    </label>
+
+                    <label className="ae-field">
+                        <span>LOT 번호</span>
+                        <input
+                            type="text"
+                            name="batchIdKeyword"
+                            value={draft.batchIdKeyword}
+                            onChange={handleChange}
+                            placeholder="LOT 번호 일부 입력"/>
+                    </label>
+                </div>
+
+                {/* 두 번째 줄: 항상 표시 */}
+                <div className="ae-search-row ae-search-second">
+                    <label className="ae-field">
+                        <span>공정코드</span>
+                        <input
+                            type="text"
+                            name="processCode"
+                            list="ae-process-options"
+                            value={draft.processCode}
+                            onChange={handleChange}
+                            placeholder="미입력 시 전체 공정"
+                        />
+                        <datalist id="ae-process-options">
+                            <option value="OP_S02_HOMO_DISPERSE" />
+                            <option value="PACKAGING" />
+                        </datalist>
+                    </label>
+
+                    <label className="ae-field">
+                        <span>이상 유형</span>
+                        <input
+                            type="text"
+                            name="anomalyType"
+                            list="ae-type-options"
+                            value={draft.anomalyType}
+                            onChange={handleChange}
+                            placeholder="미입력 시 전체 유형"/>
+                        <datalist id="ae-type-options">
+                            <option value="WARN_TORQUE_HIGH" />
+                            <option value="ERR_METAL_DETECTED" />
+                        </datalist>
+                    </label>
+
+                    <label className="ae-field">
+                        <span>조치 담당자 번호</span>
+                        <input
+                            type="number"
+                            name="userId"
+                            min="1"
+                            max="2147483647"
+                            step="1"
+                            value={draft.userId}
+                            onChange={handleChange}
+                            placeholder="미입력 시 전체 담당자"/>
+                    </label>
+                </div>
+
+                <div className="ae-search-footer">
+                    <p>입력하지 않은 조건은 검색에서 제외됩니다.</p>
+                    <div className="ae-actions">
                         <button
                             type="button"
-                            onClick={handleResetSearch}
-                        >
+                            className="ae-button"
+                            onClick={handleReset}>
                             초기화
                         </button>
-                    </form>
-                </>
-            )}
+                        <button
+                            type="submit"
+                            className="ae-button ae-primary">
+                            조회
+                        </button>
+                    </div>
+                </div>
 
-            <div className="alarm-content">
+                {inputError && (
+                    <p className="ae-error" role="alert">
+                        {inputError}
+                    </p>
+                )}
+            </form>
 
-                {/* 왼쪽: 목록 */}
-                <section className="alarm-card">
-                    <div className="alarm-card-heading">
+            <div className="ae-content">
+                {/* 왼쪽 목록 */}
+                <section className="ae-card" aria-busy={loading}>
+                    <div className="ae-card-heading">
                         <h2>
-                            {isActions
-                                ? "이상 조치 내역"
-                                : "이상 발생 이력"}
+                            {isActions ? "이상 조치 내역" : "이상 발생 이력"}
                         </h2>
 
-                        <span>상세보기를 눌러 확인하세요.</span>
+                        <span role="status">
+                            {loading
+                                ? "조회 중...": listError ? "조회 실패": `검색 결과 ${totalCount}건`}
+                        </span>
                     </div>
 
-                    {listLoading ? (
-                        <p className="alarm-message" role="status">
-                            목록을 불러오는 중입니다…
-                        </p>
-                    ) : listError ? (
-                        <p className="alarm-error" role="alert">
+                    {listError ? (
+                        <p className="ae-error" role="alert">
                             {listError}
-                        </p>
-                    ) : (
-                        <div className="alarm-table-wrap">
-                            <table className="alarm-table">
+                        </p>) : (<>
+                            <div className="ae-table-wrap">
+                                <table className="ae-table">
+                                    <thead>
+                                        {isActions ? (
+                                            <tr>
+                                                <th>알람번호</th>
+                                                <th>LOT 번호</th>
+                                                <th>조치상태</th>
+                                                <th>조치내용</th>
+                                                <th>담당자</th>
+                                                <th>조치시간</th>
+                                                <th>상세</th>
+                                            </tr>
+                                        ) : (
+                                            <tr>
+                                                <th>알람번호</th>
+                                                <th>발생시간</th>
+                                                <th>LOT 번호</th>
+                                                <th>공정</th>
+                                                <th>심각도</th>
+                                                <th>조치상태</th>
+                                                <th>상세</th>
+                                            </tr>
+                                        )}
+                                    </thead>
 
-                                <thead>
-                                    {isActions ? (
-                                        <tr>
-                                            <th>알람번호</th>
-                                            <th>LOT 번호</th>
-                                            <th>조치상태</th>
-                                            <th>조치내용</th>
-                                            <th>작업자 ID</th>
-                                            <th>조치시간</th>
-                                            <th>상세</th>
-                                        </tr>
-                                    ) : (
-                                        <tr>
-                                            <th>알람번호</th>
-                                            <th>발생시간</th>
-                                            <th>LOT 번호</th>
-                                            <th>공정</th>
-                                            <th>심각도</th>
-                                            <th>조치상태</th>
-                                            <th>상세</th>
-                                        </tr>
-                                    )}
-                                </thead>
+                                    <tbody>
+                                        {loading ? (
+                                            <tr>
+                                                <td colSpan={7} className="ae-message">
+                                                    목록을 불러오는 중입니다.
+                                                </td>
+                                            </tr>
+                                        ) : visibleAlarms.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={7} className="ae-message">
+                                                    조건에 맞는 알람이 없습니다.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            visibleAlarms.map(alarm => (
+                                                <tr
+                                                    key={alarm.anomalyId}
+                                                    className={
+                                                        selectedId === alarm.anomalyId
+                                                            ? "is-selected"
+                                                            : ""
+                                                    }
+                                                >
+                                                    <td>{alarm.anomalyId}</td>
 
-                                <tbody>
-                                    {filteredAlarms.map(alarm => (
-                                        <tr
-                                            key={alarm.anomalyId}
-                                            className={
-                                                selectedId === alarm.anomalyId
-                                                    ? "is-selected"
-                                                    : ""
-                                            }
-                                        >
-                                            <td>{alarm.anomalyId}</td>
+                                                    {isActions ? (
+                                                        <>
+                                                            <td>{display(alarm.batchId)}</td>
+                                                            <td>
+                                                                <span className={statusClass(alarm.actionStatus)}>
+                                                                    {statusText(alarm.actionStatus)}
+                                                                </span>
+                                                            </td>
+                                                            <td className="ae-note-cell">
+                                                                {display(alarm.actionNote)}
+                                                            </td>
+                                                            <td>{display(alarm.userId)}</td>
+                                                            <td>{dateText(alarm.actionTime)}</td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <td>{dateText(alarm.occurredAt)}</td>
+                                                            <td>{display(alarm.batchId)}</td>
+                                                            <td>{display(alarm.processCode)}</td>
+                                                            <td>
+                                                                <span className={severityClass(alarm.severity)}>
+                                                                    {severityText(alarm.severity)}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <span className={statusClass(alarm.actionStatus)}>
+                                                                    {statusText(alarm.actionStatus)}
+                                                                </span>
+                                                            </td>
+                                                        </>
+                                                    )}
 
-                                            {isActions ? (
-                                                <>
                                                     <td>
-                                                        {displayValue(alarm.batchId)}
+                                                        <button
+                                                            type="button"
+                                                            className="ae-detail-button"
+                                                            disabled={selectedId === alarm.anomalyId}
+                                                            onClick={() => handleSelect(alarm.anomalyId)}
+                                                        >
+                                                            {selectedId === alarm.anomalyId
+                                                                ? "선택됨"
+                                                                : "상세보기"}
+                                                        </button>
                                                     </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                                    <td>
-                                                        {displayStatus(alarm.actionStatus)}
-                                                    </td>
+                            {!loading && (
+                                <div className="ae-list-footer">
+                                    <span>
+                                        총 {totalCount}건 중 {firstNumber}–{lastNumber}건
+                                    </span>
 
-                                                    <td className="alarm-note-cell">
-                                                        {displayValue(alarm.actionNote)}
-                                                    </td>
+                                    {totalPages > 0 && (
+                                        <nav className="ae-pagination" aria-label="알람 목록 페이지">
+                                            <button
+                                                type="button"
+                                                aria-label="첫 페이지"
+                                                disabled={page === 0}
+                                                onClick={() => handlePage(0)}
+                                            >
+                                                «
+                                            </button>
 
-                                                    <td>
-                                                        {displayValue(alarm.userId)}
-                                                    </td>
+                                            <button
+                                                type="button"
+                                                disabled={page === 0}
+                                                onClick={() => handlePage(page - 1)}
+                                            >
+                                                이전
+                                            </button>
 
-                                                    <td>
-                                                        {displayDate(alarm.actionTime)}
-                                                    </td>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <td>
-                                                        {displayDate(alarm.occurredAt)}
-                                                    </td>
-
-                                                    <td>
-                                                        {displayValue(alarm.batchId)}
-                                                    </td>
-
-                                                    <td>
-                                                        {displayValue(alarm.processCode)}
-                                                    </td>
-
-                                                    <td>
-                                                        <span className={`alarm-badge ${severityClass(alarm.severity)}`}>
-                                                            {displaySeverity(alarm.severity)}
-                                                        </span>
-                                                    </td>
-
-                                                    <td>
-                                                        <span className={`alarm-badge ${actionStatusClass(alarm.actionStatus)}`}>
-                                                            {displayStatus(alarm.actionStatus)}
-                                                        </span>
-                                                    </td>
-                                                </>
-                                            )}
-
-                                            <td>
+                                            {pageNumbers.map(number => (
                                                 <button
                                                     type="button"
-                                                    className="alarm-detail-button"
-                                                    onClick={() =>
-                                                        handleSelect(alarm.anomalyId)
-                                                    }
-                                                    aria-label={`알람 ${alarm.anomalyId} 상세보기`}
+                                                    key={number}
+                                                    className={page === number ? "active" : ""}
+                                                    aria-current={page === number ? "page" : undefined}
+                                                    onClick={() => handlePage(number)}
                                                 >
-                                                    상세보기
+                                                    {number + 1}
                                                 </button>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                            ))}
 
-                                    {filteredAlarms.length === 0 && (
-                                        <tr>
-                                            <td colSpan={7}>
-                                                조회 결과가 없습니다.
-                                            </td>
-                                        </tr>
+                                            <button
+                                                type="button"
+                                                disabled={page >= totalPages - 1}
+                                                onClick={() => handlePage(page + 1)}
+                                            >
+                                                다음
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                aria-label="마지막 페이지"
+                                                disabled={page >= totalPages - 1}
+                                                onClick={() => handlePage(totalPages - 1)}
+                                            >
+                                                »
+                                            </button>
+                                        </nav>
                                     )}
-                                </tbody>
-                            </table>
-                        </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
 
-                {/* 오른쪽: PK 상세조회 */}
-                <section className="alarm-card alarm-detail">
-                    <h2>
-                        {isActions
-                            ? "조치 상세정보"
-                            : "선택한 알람 상세정보"}
-                    </h2>
+                {/* 오른쪽 상세정보 */}
+                <section className="ae-card" aria-busy={detailLoading}>
+                    <div className="ae-card-heading">
+                        <h2>
+                            {isActions ? "조치 상세정보" : "선택한 알람 상세정보"}
+                        </h2>
 
-                    {selectedId === null ? (
-                        <p className="alarm-message">
-                            왼쪽 목록에서 알람을 선택해 주세요.
-                        </p>
-                    ) : detailLoading ? (
-                        <p className="alarm-message" role="status">
-                            상세정보를 불러오는 중입니다…
+                        {selectedId !== null && (
+                            <button
+                                type="button"
+                                className="ae-detail-button"
+                                onClick={clearDetail}
+                            >
+                                선택 해제
+                            </button>
+                        )}
+                    </div>
+
+                    {detailLoading ? (
+                        <p className="ae-message" role="status">
+                            상세정보를 불러오는 중입니다.
                         </p>
                     ) : detailError ? (
-                        <p className="alarm-error" role="alert">
+                        <p className="ae-error" role="alert">
                             {detailError}
+                            <br />
+                            선택 해제 후 다시 조회해 주세요.
                         </p>
-                    ) : selectedAlarm ? (
+                    ) : detail ? (
                         <>
-                            {/* 공통 기본정보 */}
-                            <dl className="alarm-detail-list">
-                                <DetailRow
-                                    label="알람번호"
-                                    value={selectedAlarm.anomalyId}
-                                />
+                            <div className="ae-detail-badges">
+                                <span className={severityClass(detail.severity)}>
+                                    {severityText(detail.severity)}
+                                </span>
+                                <span className={statusClass(detail.actionStatus)}>
+                                    {statusText(detail.actionStatus)}
+                                </span>
+                            </div>
 
-                                <DetailRow
-                                    label="LOT 번호"
-                                    value={selectedAlarm.batchId}
-                                />
-
-                                <DetailRow
-                                    label="공정"
-                                    value={selectedAlarm.processCode}
-                                />
-
-                                <DetailRow
-                                    label="발생시간"
-                                    value={displayDate(selectedAlarm.occurredAt)}
-                                />
-
-                                <DetailRow
-                                    label="알람 메시지"
-                                    value={selectedAlarm.alarmMessage}
-                                />
-                            </dl>
-
-                            {/* 메인 화면의 상세정보 */}
-                            {!isActions && (
-                                <>
-                                    <h3 className="alarm-section-title">
-                                        이상 발생 정보
-                                    </h3>
-
-                                    <dl className="alarm-detail-list">
-                                        <DetailRow
-                                            label="제품번호"
-                                            value={selectedAlarm.pouchId}
-                                        />
-
-                                        <DetailRow
-                                            label="규칙번호"
-                                            value={selectedAlarm.ruleId}
-                                        />
-
-                                        <DetailRow
-                                            label="이상 유형"
-                                            value={selectedAlarm.anomalyType}
-                                        />
-
-                                        <DetailRow
-                                            label="측정항목"
-                                            value={selectedAlarm.sensorName}
-                                        />
-
-                                        <DetailRow
-                                            label="측정값"
-                                            value={selectedAlarm.measuredValue}
-                                        />
-
-                                        <DetailRow
-                                            label="심각도"
-                                            value={displaySeverity(selectedAlarm.severity)}
-                                        />
-
-                                        <DetailRow
-                                            label="해제시간"
-                                            value={displayDate(selectedAlarm.resolvedAt)}
-                                        />
-
-                                        <DetailRow
-                                            label="지속시간(초)"
-                                            value={selectedAlarm.durationSec}
-                                        />
-                                    </dl>
-                                </>
-                            )}
-
-                            {/* 저장된 조치정보 */}
-                            <h3 className="alarm-section-title">
-                                조치 기록
-                            </h3>
-
-                            <dl className="alarm-detail-list">
-                                <DetailRow
-                                    label="조치상태"
-                                    value={displayStatus(selectedAlarm.actionStatus)}
-                                />
-
-                                <DetailRow
-                                    label="조치내용"
-                                    value={selectedAlarm.actionNote}
-                                />
-
-                                <DetailRow
-                                    label="작업자 ID"
-                                    value={selectedAlarm.userId}
-                                />
-
-                                <DetailRow
-                                    label="조치시간"
-                                    value={displayDate(selectedAlarm.actionTime)}
-                                />
+                            <dl className="ae-detail-list">
+                                {detailFields.map(([label, value]) => (
+                                    <div className="ae-detail-row" key={label}>
+                                        <dt>{label}</dt>
+                                        <dd>{display(value)}</dd>
+                                    </div>
+                                ))}
                             </dl>
                         </>
-                    ) : null}
+                    ) : (
+                        <p className="ae-message">
+                            왼쪽 목록에서 알람의 상세보기를 눌러 주세요.
+                        </p>
+                    )}
                 </section>
-
             </div>
         </div>
     );
