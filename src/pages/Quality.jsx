@@ -212,10 +212,16 @@ export default function Quality(){
                 onChange={(event) => setSelectedResult(event.target.value)}
             >
                 <option value="">전체결과</option>
+                {tab === "bulk" ? (<>
                 <option value="QC_RESULT_PASS">합격</option>
                 <option value="QC_RESULT_FAIL">불합격</option>
+                </>):(<>
+                <option value="DISP_ACCEPTED">합격</option>
+                <option value="DISP_REJECTED">불합격</option>
+                </>)}
+                
             </select>
-
+            
             { /* 조회버튼 */}
             <button className="quality-search-btn"
                     onClick={() => {
