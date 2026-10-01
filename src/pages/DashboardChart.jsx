@@ -1,146 +1,228 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
-  PointElement,
-  LineElement,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Chart } from 'react-chartjs-2';
-import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { Bar } from 'react-chartjs-2';
 
-// Chart.js 필수 모듈 등록
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartDataLabels
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// 🚀 props로 chartData를 받도록 변경 (기본값 [] 설정)
-const DashboardChart = ({ chartData = [] }) => {
-  // 1. 백엔드에서 전달받은 배열 데이터에서 X축(날짜)과 Y축(생산량, 불량률) 데이터 추출
-  // ※ 백엔드 DTO / DB 컬럼명에 따라 item.date, item.productionQuantity 등을 수정하세요.
-  const labels = chartData.map((item) => item.date || item.createdAt || '날짜');
-  const productionValues = chartData.map((item) => item.productionQuantity || 0);
-  const defectValues = chartData.map((item) => item.defectRate || 0);
+// ★ 별도 패키지 설치 없이 막대 위에 양품/불량 수량을 그려주는 커스텀 플러그인
+const customDataLabels = {
+  id: 'customDataLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    ctx.save();
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  // 2. 차트 데이터 구성
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      meta.data.forEach((bar, index) => {
+        const value = dataset.data[index];
+        if (value && value > 0) {
+          const x = bar.x;
+          const barHeight = Math.abs(bar.base - bar.y);
+          const centerY = (bar.base + bar.y) / 2;
+
+          // 막대 높이가 충분히 크면 막대 안 중앙에 흰색 표시
+          if (barHeight >= 15) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(value.toLocaleString(), x, centerY);
+          } else {
+            // 막대 높이가 너무 얇을 경우(불량 수가 적을 때) 막대 상단 외부에 표시
+            ctx.fillStyle = datasetIndex === 0 ? '#ff4d4f' : '#3b82f6';
+            ctx.fillText(value.toLocaleString(), x, bar.y - 8);
+          }
+        }
+      });
+    });
+
+    ctx.restore();
+  },
+};
+
+const DashboardChart = ({ batchId, filterOption }) => {
+  const [rawList, setRawList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    axios
+      .get('http://localhost:8080/mask/filling-packagings')
+      .then((res) => {
+        setRawList(Array.isArray(res.data) ? res.data : []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('포장 데이터 로딩 에러:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  // 1. LOT 시작 시각 기준 고정 15분(900초) 고정 간격 집계 함수
+  const get15MinData = () => {
+    const filtered = rawList.filter((item) => {
+      if (!batchId) return true;
+      const itemBatchId = item.batchId || item.batch_id;
+      return itemBatchId === batchId;
+    });
+
+    if (filtered.length === 0) {
+      return { labels: [], passValues: [], failValues: [] };
+    }
+
+    let minTimeMs = Infinity;
+    filtered.forEach((item) => {
+      const timeStr = item.timestamp || item.created_at || item.packagingTime || item.packaging_time;
+      if (!timeStr) return;
+      const timeMs = new Date(timeStr).getTime();
+      if (!isNaN(timeMs) && timeMs < minTimeMs) {
+        minTimeMs = timeMs;
+      }
+    });
+
+    if (minTimeMs === Infinity) {
+      return { labels: [], passValues: [], failValues: [] };
+    }
+
+    const startTime = new Date(minTimeMs);
+    startTime.setMilliseconds(0);
+    const startTimeMs = startTime.getTime();
+
+    const intervalMs = 15 * 60 * 1000; // 15분
+    const timeSlots = {};
+
+    filtered.forEach((item) => {
+      const timeStr = item.timestamp || item.created_at || item.packagingTime || item.packaging_time;
+      if (!timeStr) return;
+
+      const date = new Date(timeStr);
+      if (isNaN(date.getTime())) return;
+
+      const diffMs = date.getTime() - startTimeMs;
+      if (diffMs < 0) return;
+
+      const slotIndex = Math.floor(diffMs / intervalMs);
+      const slotStartMs = startTimeMs + slotIndex * intervalMs;
+      const slotStartDate = new Date(slotStartMs);
+
+      const hour = String(slotStartDate.getHours()).padStart(2, '0');
+      const min = String(slotStartDate.getMinutes()).padStart(2, '0');
+      const sec = String(slotStartDate.getSeconds()).padStart(2, '0');
+      const slotKey = `${hour}:${min}:${sec}`;
+
+      if (!timeSlots[slotKey]) {
+        timeSlots[slotKey] = { pass: 0, fail: 0, slotOrder: slotIndex };
+      }
+
+      const disposition = (item.finalDisposition || item.final_disposition || '').toUpperCase();
+      if (
+        disposition.includes('DISP_ACCEPTED') ||
+        disposition.includes('ACCEPTED') ||
+        disposition.includes('PASS') ||
+        disposition.includes('OK')
+      ) {
+        timeSlots[slotKey].pass += 1;
+      } else {
+        timeSlots[slotKey].fail += 1;
+      }
+    });
+
+    const sortedKeys = Object.keys(timeSlots).sort(
+      (a, b) => timeSlots[a].slotOrder - timeSlots[b].slotOrder
+    );
+
+    return {
+      labels: sortedKeys,
+      passValues: sortedKeys.map((k) => timeSlots[k].pass),
+      failValues: sortedKeys.map((k) => timeSlots[k].fail),
+    };
+  };
+
+  // 2. 최근 LOT 5개 집계 함수
+  const getRecentLotData = () => {
+    const lotMap = {};
+
+    rawList.forEach((item) => {
+      const itemBatchId = item.batchId || item.batch_id || '미지정';
+      if (!lotMap[itemBatchId]) {
+        lotMap[itemBatchId] = { pass: 0, fail: 0 };
+      }
+
+      const disposition = (item.finalDisposition || item.final_disposition || '').toUpperCase();
+      if (
+        disposition.includes('DISP_ACCEPTED') ||
+        disposition.includes('ACCEPTED') ||
+        disposition.includes('PASS') ||
+        disposition.includes('OK')
+      ) {
+        lotMap[itemBatchId].pass += 1;
+      } else {
+        lotMap[itemBatchId].fail += 1;
+      }
+    });
+
+    const lotKeys = Object.keys(lotMap).slice(-5);
+    return {
+      labels: lotKeys,
+      passValues: lotKeys.map((k) => lotMap[k].pass),
+      failValues: lotKeys.map((k) => lotMap[k].fail),
+    };
+  };
+
+  const { labels, passValues, failValues } =
+    filterOption === 'recentLot' ? getRecentLotData() : get15MinData();
+
   const data = {
-    labels: labels.length > 0 ? labels : ['9/16', '9/17', '9/18', '9/19', '9/20'], // 데이터 없을 시 임시 예시
+    labels: labels.length > 0 ? labels : ['데이터 없음'],
     datasets: [
       {
-        type: 'bar',
-        label: '생산량(파우치)',
-        data: productionValues,
-        backgroundColor: '#3b82f6', // 파란색 막대
-        yAxisID: 'y_production',
-        barPercentage: 0.6,
-        borderRadius: 4,
-        // 막대 위 수치 데이터 라벨 설정
-        datalabels: {
-          color: '#1d4ed8',
-          anchor: 'end',
-          align: 'top',
-          font: { weight: 'bold', size: 12 },
-          formatter: (value) => (value ? value.toLocaleString() : 0),
-        },
+        label: '불량 수량', // 아래쪽 빨간색
+        data: labels.length > 0 ? failValues : [0],
+        backgroundColor: '#ff4d4f',
+        barPercentage: 0.5,
       },
       {
-        type: 'line',
-        label: '불량률(%)',
-        data: defectValues,
-        borderColor: '#ef4444', // 빨간색 라인
-        backgroundColor: '#ef4444',
-        borderWidth: 2,
-        pointRadius: 5,
-        pointBackgroundColor: '#ef4444',
-        yAxisID: 'y_defect',
-        // 꺾은선 점 위 수치 데이터 라벨 설정
-        datalabels: {
-          color: '#ffffff',
-          anchor: 'center',
-          align: 'top',
-          offset: 10,
-          font: { weight: 'bold', size: 12 },
-          formatter: (value) => `${Number(value || 0).toFixed(2)}%`,
-        },
+        label: '양품 수량', // 위쪽 파란색
+        data: labels.length > 0 ? passValues : [0],
+        backgroundColor: '#72b0f5',
+        barPercentage: 0.5,
       },
     ],
   };
 
-  // 3. 차트 옵션 설정 (이중 Y축)
   const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top',
-        align: 'start',
-        labels: {
-          usePointStyle: true,
-          boxWidth: 8,
-          font: { size: 13, weight: '500' },
-        },
-      },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-      },
+      legend: { position: 'top' },
+      tooltip: { mode: 'index', intersect: false },
     },
     scales: {
-      x: {
-        grid: { display: false },
-      },
-      // 왼쪽 Y축: 생산량 (막대용)
-      y_production: {
-        type: 'linear',
-        position: 'left',
-        min: 0,
-        suggestedMax: 50000, // 동적 데이터에 맞춰 가변 적용되도록 suggestedMax 사용
-        title: {
-          display: true,
-          text: '생산량(파우치)',
-          font: { size: 12 },
-        },
-        ticks: {
-          stepSize: 10000,
-          callback: (value) => value.toLocaleString(),
-        },
-        grid: { color: '#f3f4f6' },
-      },
-      // 오른쪽 Y축: 불량률 (라인용)
-      y_defect: {
-        type: 'linear',
-        position: 'right',
-        min: 0.0,
-        suggestedMax: 2.0,
-        title: {
-          display: true,
-          text: '불량률(%)',
-          font: { size: 12 },
-        },
-        ticks: {
-          stepSize: 0.5,
-          callback: (value) => Number(value).toFixed(1),
-        },
-        grid: { drawOnChartArea: false }, // 격자선 중복 방지
-      },
+      x: { stacked: true, grid: { display: false } },
+      y: { stacked: true, beginAtZero: true, grid: { borderDash: [4, 4] } },
     },
   };
 
+  if (loading) {
+    return (
+      <div style={{ height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        데이터 로딩 중...
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '350px' }}>
-      <Chart type="bar" data={data} options={options} />
+      <Bar data={data} options={options} plugins={[customDataLabels]} />
     </div>
   );
 };
