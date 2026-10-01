@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,196 +11,190 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// 'YYYY-MM-DD HH:mm:ss.SSS' 또는 기타 ISO 포맷 안전 파싱 함수
-const parseDateCustom = (dateStr) => {
-  if (!dateStr) return null;
+// ★ 별도 패키지 설치 없이 막대 위에 양품/불량 수량을 그려주는 커스텀 플러그인
+const customDataLabels = {
+  id: 'customDataLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    ctx.save();
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  if (typeof dateStr !== 'string') {
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? null : d;
-  }
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      meta.data.forEach((bar, index) => {
+        const value = dataset.data[index];
+        if (value && value > 0) {
+          const x = bar.x;
+          const barHeight = Math.abs(bar.base - bar.y);
+          const centerY = (bar.base + bar.y) / 2;
 
-  const str = dateStr.trim();
-
-  // '2023-01-05 12:37:00.450' 형태 전용 정규식 파싱
-  const regex = /^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/;
-  const match = str.match(regex);
-
-  if (match) {
-    const [, year, month, day, hours, minutes, seconds, ms] = match;
-    const parsedDate = new Date(
-      Number(year),
-      Number(month) - 1, // 월은 0부터 시작
-      Number(day),
-      Number(hours),
-      Number(minutes),
-      Number(seconds),
-      ms ? Number(ms.padEnd(3, '0')) : 0
-    );
-    return isNaN(parsedDate.getTime()) ? null : parsedDate;
-  }
-
-  // 표준 ISO 포맷 처리 시도 (예: 2023-01-05T12:37:00.450Z)
-  const fallbackDate = new Date(str.replace(' ', 'T'));
-  return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
-};
-
-const DashboardChart = ({ packagingData = [], batchesData = [], filterOption = 'timely' }) => {
-  let labels = [];
-  let goodValues = [];
-  let defectValues = [];
-
-  if (filterOption === 'nowLot') {
-    // 1. 최신 LOT 추출
-    const latestBatch = batchesData.length > 0 ? batchesData[batchesData.length - 1] : null;
-    const latestBatchId = latestBatch ? (latestBatch.batchId || latestBatch.batch_id) : null;
-
-    // 2. 최신 LOT 데이터 필터링
-    const latestPackaging = packagingData.filter((item) => {
-      if (!latestBatchId) return true;
-      const itemBatchId = item.batchId || item.batch_id;
-      return itemBatchId === latestBatchId;
+          // 막대 높이가 충분히 크면 막대 안 중앙에 흰색 표시
+          if (barHeight >= 15) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(value.toLocaleString(), x, centerY);
+          } else {
+            // 막대 높이가 너무 얇을 경우(불량 수가 적을 때) 막대 상단 외부에 표시
+            ctx.fillStyle = datasetIndex === 0 ? '#ff4d4f' : '#3b82f6';
+            ctx.fillText(value.toLocaleString(), x, bar.y - 8);
+          }
+        }
+      });
     });
 
-    if (latestPackaging.length > 0) {
-      // 3. 날짜 문자열 커스텀 파싱 및 유효성 검사
-      const validItems = latestPackaging
-        .map((item) => {
-          const rawDate = item.createdAt || item.created_at || item.timestamp;
-          const dateObj = parseDateCustom(rawDate);
-          return { ...item, dateObj };
-        })
-        .filter((item) => item.dateObj !== null)
-        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+    ctx.restore();
+  },
+};
 
-      if (validItems.length > 0) {
-        const minDate = validItems[0].dateObj;
-        const maxDate = validItems[validItems.length - 1].dateObj;
+const DashboardChart = ({ batchId, filterOption }) => {
+  const [rawList, setRawList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-        // 시작 시각 (15분 단위 내림)
-        const start = new Date(minDate);
-        start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
+  useEffect(() => {
+    setLoading(true);
+    axios
+      .get('http://localhost:8080/mask/filling-packagings')
+      .then((res) => {
+        setRawList(Array.isArray(res.data) ? res.data : []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('포장 데이터 로딩 에러:', err);
+        setLoading(false);
+      });
+  }, []);
 
-        // 종료 시각 (15분 단위 올림)
-        const end = new Date(maxDate);
-        end.setMinutes(Math.ceil(end.getMinutes() / 15) * 15, 0, 0);
+  // 1. LOT 시작 시각 기준 고정 15분(900초) 고정 간격 집계 함수
+  const get15MinData = () => {
+    const filtered = rawList.filter((item) => {
+      if (!batchId) return true;
+      const itemBatchId = item.batchId || item.batch_id;
+      return itemBatchId === batchId;
+    });
 
-        // 시작시각과 종료시각이 완전히 같으면 최소 1시간(4개 슬롯) 생성
-        if (start.getTime() === end.getTime()) {
-          end.setMinutes(end.getMinutes() + 60);
-        }
+    if (filtered.length === 0) {
+      return { labels: [], passValues: [], failValues: [] };
+    }
 
-        // 4. 15분 간격 구간(슬롯) 연속 생성
-        const timeMap = {};
-        let current = new Date(start);
-
-        while (current <= end) {
-          const hh = String(current.getHours()).padStart(2, '0');
-          const mm = String(current.getMinutes()).padStart(2, '0');
-          const timeKey = `${hh}:${mm}`;
-
-          timeMap[timeKey] = { good: 0, defect: 0 };
-          current = new Date(current.getTime() + 15 * 60 * 1000); // 15분 증가
-        }
-
-        // 5. 데이터를 15분 단위 해당 슬롯에 집계
-        validItems.forEach((item) => {
-          const hh = String(item.dateObj.getHours()).padStart(2, '0');
-          const mm = String(Math.floor(item.dateObj.getMinutes() / 15) * 15).padStart(2, '0');
-          const timeKey = `${hh}:${mm}`;
-
-          const disposition = item.finalDisposition || item.final_disposition || '';
-
-          if (timeMap[timeKey]) {
-            if (disposition.includes('ACCEPTED')) {
-              timeMap[timeKey].good += 1;
-            } else if (disposition.includes('REJECTED')) {
-              timeMap[timeKey].defect += 1;
-            }
-          }
-        });
-
-        labels = Object.keys(timeMap);
-        goodValues = labels.map((k) => timeMap[k].good);
-        defectValues = labels.map((k) => timeMap[k].defect);
+    let minTimeMs = Infinity;
+    filtered.forEach((item) => {
+      const timeStr = item.timestamp || item.created_at || item.packagingTime || item.packaging_time;
+      if (!timeStr) return;
+      const timeMs = new Date(timeStr).getTime();
+      if (!isNaN(timeMs) && timeMs < minTimeMs) {
+        minTimeMs = timeMs;
       }
+    });
+
+    if (minTimeMs === Infinity) {
+      return { labels: [], passValues: [], failValues: [] };
     }
 
-    // 데이터가 없거나 파싱 실패 시 기본 레이블
-    if (labels.length === 0) {
-      labels = ['12:00', '12:15', '12:30', '12:45', '13:00'];
-      goodValues = [0, 0, 0, 0, 0];
-      defectValues = [0, 0, 0, 0, 0];
-    }
-  } else {
-    // -------------------------------------------------------------
-    // 옵션 B: 최근 5개 LOT
-    // -------------------------------------------------------------
-    const recentBatches = batchesData.slice(-5);
+    const startTime = new Date(minTimeMs);
+    startTime.setMilliseconds(0);
+    const startTimeMs = startTime.getTime();
 
-    if (recentBatches.length > 0) {
-      labels = recentBatches.map((batch, index) => {
-        return batch.batchCode || batch.batch_code || batch.batchId || `LOT-${index + 1}`;
-      });
+    const intervalMs = 15 * 60 * 1000; // 15분
+    const timeSlots = {};
 
-      recentBatches.forEach((batch) => {
-        const bId = batch.batchId || batch.batch_id;
-        const batchPackagings = packagingData.filter(
-          (item) => (item.batchId || item.batch_id) === bId
-        );
+    filtered.forEach((item) => {
+      const timeStr = item.timestamp || item.created_at || item.packagingTime || item.packaging_time;
+      if (!timeStr) return;
 
-        let goodCount = 0;
-        let defectCount = 0;
+      const date = new Date(timeStr);
+      if (isNaN(date.getTime())) return;
 
-        batchPackagings.forEach((item) => {
-          const disposition = item.finalDisposition || item.final_disposition || '';
-          if (disposition.includes('ACCEPTED')) {
-            goodCount += 1;
-          } else if (disposition.includes('REJECTED')) {
-            defectCount += 1;
-          }
-        });
+      const diffMs = date.getTime() - startTimeMs;
+      if (diffMs < 0) return;
 
-        if (goodCount === 0 && defectCount === 0) {
-          const actual = Number(batch.actualUnits || batch.actual_units || 0);
-          const defect = Number(batch.defectUnits || batch.defect_units || 0);
-          goodCount = Math.max(0, actual - defect);
-          defectCount = defect;
-        }
+      const slotIndex = Math.floor(diffMs / intervalMs);
+      const slotStartMs = startTimeMs + slotIndex * intervalMs;
+      const slotStartDate = new Date(slotStartMs);
 
-        goodValues.push(goodCount);
-        defectValues.push(defectCount);
-      });
-    } else {
-      labels = ['LOT-1', 'LOT-2', 'LOT-3', 'LOT-4', 'LOT-5'];
-      goodValues = [0, 0, 0, 0, 0];
-      defectValues = [0, 0, 0, 0, 0];
-    }
-  }
+      const hour = String(slotStartDate.getHours()).padStart(2, '0');
+      const min = String(slotStartDate.getMinutes()).padStart(2, '0');
+      const sec = String(slotStartDate.getSeconds()).padStart(2, '0');
+      const slotKey = `${hour}:${min}:${sec}`;
+
+      if (!timeSlots[slotKey]) {
+        timeSlots[slotKey] = { pass: 0, fail: 0, slotOrder: slotIndex };
+      }
+
+      const disposition = (item.finalDisposition || item.final_disposition || '').toUpperCase();
+      if (
+        disposition.includes('DISP_ACCEPTED') ||
+        disposition.includes('ACCEPTED') ||
+        disposition.includes('PASS') ||
+        disposition.includes('OK')
+      ) {
+        timeSlots[slotKey].pass += 1;
+      } else {
+        timeSlots[slotKey].fail += 1;
+      }
+    });
+
+    const sortedKeys = Object.keys(timeSlots).sort(
+      (a, b) => timeSlots[a].slotOrder - timeSlots[b].slotOrder
+    );
+
+    return {
+      labels: sortedKeys,
+      passValues: sortedKeys.map((k) => timeSlots[k].pass),
+      failValues: sortedKeys.map((k) => timeSlots[k].fail),
+    };
+  };
+
+  // 2. 최근 LOT 5개 집계 함수
+  const getRecentLotData = () => {
+    const lotMap = {};
+
+    rawList.forEach((item) => {
+      const itemBatchId = item.batchId || item.batch_id || '미지정';
+      if (!lotMap[itemBatchId]) {
+        lotMap[itemBatchId] = { pass: 0, fail: 0 };
+      }
+
+      const disposition = (item.finalDisposition || item.final_disposition || '').toUpperCase();
+      if (
+        disposition.includes('DISP_ACCEPTED') ||
+        disposition.includes('ACCEPTED') ||
+        disposition.includes('PASS') ||
+        disposition.includes('OK')
+      ) {
+        lotMap[itemBatchId].pass += 1;
+      } else {
+        lotMap[itemBatchId].fail += 1;
+      }
+    });
+
+    const lotKeys = Object.keys(lotMap).slice(-5);
+    return {
+      labels: lotKeys,
+      passValues: lotKeys.map((k) => lotMap[k].pass),
+      failValues: lotKeys.map((k) => lotMap[k].fail),
+    };
+  };
+
+  const { labels, passValues, failValues } =
+    filterOption === 'recentLot' ? getRecentLotData() : get15MinData();
 
   const data = {
-    labels: labels,
+    labels: labels.length > 0 ? labels : ['데이터 없음'],
     datasets: [
       {
-        label: '불량 수량',
-        data: defectValues,
-        backgroundColor: '#bfdbfe',
-        borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 },
+        label: '불량 수량', // 아래쪽 빨간색
+        data: labels.length > 0 ? failValues : [0],
+        backgroundColor: '#ff4d4f',
+        barPercentage: 0.5,
       },
       {
-        label: '양품 수량',
-        data: goodValues,
-        backgroundColor: '#3b82f6',
-        borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+        label: '양품 수량', // 위쪽 파란색
+        data: labels.length > 0 ? passValues : [0],
+        backgroundColor: '#72b0f5',
+        barPercentage: 0.5,
       },
     ],
   };
@@ -213,13 +208,21 @@ const DashboardChart = ({ packagingData = [], batchesData = [], filterOption = '
     },
     scales: {
       x: { stacked: true, grid: { display: false } },
-      y: { stacked: true, grid: { color: '#f3f4f6' } },
+      y: { stacked: true, beginAtZero: true, grid: { borderDash: [4, 4] } },
     },
   };
 
+  if (loading) {
+    return (
+      <div style={{ height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        데이터 로딩 중...
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '350px' }}>
-      <Bar data={data} options={options} />
+      <Bar data={data} options={options} plugins={[customDataLabels]} />
     </div>
   );
 };
