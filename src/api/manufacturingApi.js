@@ -101,7 +101,6 @@ export const dataTypes = {
     bulk: {
         title: "벌크 검사",
         path: "/mask/bulk-qc",
-        paged: true,
         id: "qc_id",
         date: "sample_time",
         searchKey: "batchId",
@@ -239,7 +238,7 @@ export const dataTypes = {
     }
 };
 
-// 날짜 항목만 날짜 형식으로 표시
+// 화면 표시값
 export function showValue(key, value) {
     if (value === null || value === undefined || value === "") {
         return "-";
@@ -265,6 +264,7 @@ export function showValue(key, value) {
     return String(value);
 }
 
+// 오류 메시지
 export function requestError(error) {
     if (error.response) {
         return `조회 실패: HTTP ${error.response.status}`;
@@ -278,56 +278,37 @@ export function requestError(error) {
 }
 
 // 목록조회
+// 벌크 검사도 페이지 객체가 아닌 배열을 받음
 export async function loadRecords(config, signal, batchId = "") {
     if (!config.path) {
-        throw new Error("이 데이터의 조회 API가 아직 연결되지 않았습니다.");
+        throw new Error(
+            "이 데이터의 조회 API가 아직 연결되지 않았습니다."
+        );
     }
 
-    // 기존 List 응답
-    if (!config.paged) {
-        const response = await api.get(config.path, { signal });
+    const params = {};
 
-        if (!Array.isArray(response.data)) {
-            throw new Error("전체조회 API가 배열을 반환하는지 확인해 주세요.");
-        }
-
-        return response.data;
+    // LOT별 이력 화면에서 벌크 검사 조회 시
+    // batchId 조건을 서버에 전달
+    if (
+        config.path === "/mask/bulk-qc" &&
+        batchId.trim()
+    ) {
+        params.batchId = batchId.trim();
     }
 
-    // 벌크 검사처럼 페이지 응답인 경우
-    // 현재 화면은 받은 데이터를 기준으로 검색하므로 페이지를 모아서 사용
-    const records = [];
-    let page = 0;
+    const response = await api.get(config.path, {
+        signal,
+        params
+    });
 
-    while (true) {
-        const response = await api.get(config.path, {
-            signal,
-            params: {
-                page,
-                size: 100,
-                ...(batchId ? { batchId } : {})
-            }
-        });
-
-        const data = response.data;
-
-        if (
-            !data ||
-            !Array.isArray(data.content) ||
-            !Number.isInteger(data.totalPages) ||
-            data.totalPages < 0
-        ) {
-            throw new Error("페이지 응답의 content와 totalPages를 확인해 주세요.");
-        }
-
-        records.push(...data.content);
-
-        page += 1;
-
-        if (page >= data.totalPages) {
-            return records;
-        }
+    if (!Array.isArray(response.data)) {
+        throw new Error(
+            "목록조회 API가 배열을 반환하는지 확인해 주세요."
+        );
     }
+
+    return response.data;
 }
 
 // PK 개별조회
@@ -338,7 +319,9 @@ export async function loadRecord(config, id, signal) {
     );
 
     if (!response.data || response.data[config.id] == null) {
-        throw new Error("PK 개별조회 응답을 확인해 주세요.");
+        throw new Error(
+            "PK 개별조회 응답을 확인해 주세요."
+        );
     }
 
     return response.data;
@@ -352,7 +335,9 @@ export async function loadLot(batchId, signal) {
     );
 
     if (!response.data || !response.data.batchId) {
-        throw new Error("LOT 개별조회 응답을 확인해 주세요.");
+        throw new Error(
+            "LOT 개별조회 응답을 확인해 주세요."
+        );
     }
 
     return response.data;
