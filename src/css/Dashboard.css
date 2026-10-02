@@ -6,7 +6,15 @@
     display: flex; /* 자식 요소들을 가로 배치 */
     gap: 10px;    /* 자식 요소 사이의 간격 지정 (선택 사항) */
 }
-
+.row2 {
+    width: 100%;
+    display: flex; /* 자식 요소들을 가로 배치 */
+    gap: 10px;    /* 자식 요소 사이의 간격 지정 (선택 사항) */
+    alignItems: stretch;
+}
+.link_box{
+    height: 100%;
+}
 .dash_board1{
     display: flex;
     flex: 1;
@@ -44,5 +52,7 @@
     background-color: white;
     border-radius: 15px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    cursor: 'pointer';
+    height: 100%;
 }
 

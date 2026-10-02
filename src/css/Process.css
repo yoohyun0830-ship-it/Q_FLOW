@@ -1,0 +1,29 @@
+.pr_row1_boxs{
+    display: flex;
+}
+.pr_row1_box{
+    flex: 1;
+}
+.pr_row1_box_title{
+    display: flex;
+}
+.pr_header{
+    display: flex;
+}
+.pr_row2_table_row{
+    display: flex;
+}
+.pr_row2_table_row>div{
+    flex:1;
+}
+.pr_row2{
+    display: flex;
+}
+.pr_row2_box{
+    flex:1;
+}
+button{
+    height: 30px;
+    margin: 0px 5px;
+    padding: 2px 15px;
+}
