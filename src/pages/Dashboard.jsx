@@ -48,7 +48,7 @@ export default function Dashboard() {
       ? (totalBatchDefectUnits / totalBatchTargetUnits) * 100
       : 0;
 
-  // 가장 최근 LOT 및 LOT ID 추출 (id, batchNo, batchCode 등 안전하게 방어)
+  // 가장 최근 LOT 및 LOT ID 추출
   const latestBatch = batchesList.length > 0 ? batchesList[batchesList.length - 1] : null;
   const latestBatchId = latestBatch 
     ? (latestBatch.batchId || latestBatch.batch_id || latestBatch.id || latestBatch.batchNo || '') 
@@ -76,7 +76,12 @@ export default function Dashboard() {
   const defectRateDiffFormatted = diffVal > 0 ? `+${diffVal.toFixed(2)}` : diffVal.toFixed(2);
 
   const targetUnits = 3000;
-  const targetRate = targetUnits > 0 ? ((actualCount / targetUnits) * 100).toFixed(1) : "0.0";
+  const targetRateNum = targetUnits > 0 ? (actualCount / targetUnits) * 100 : 0;
+  const targetRate = targetRateNum.toFixed(1);
+
+  // 불량율 시각화용 비율 (최대 100% 한도)
+  const defectProgressPercent = Math.min(Math.max(latestDefectRate, 0), 100);
+
   const anomalyCount = 0;
   const anomalyTargetRate = "0.0";
 
@@ -91,9 +96,10 @@ export default function Dashboard() {
   return (
     <div>
       <div>
-        <h2 style={{ margin: "0px" }}>대시보드</h2>
+        <h2 style={{ marginBottom: "10px" , marginTop: "0px"}}>대시보드</h2>
       </div>
       <div className="row">
+        {/* 생산량 카드 */}
         <div className="dash_board1">
           <div>
             <img className="icon" src={icon1} alt="생산량 아이콘" />
@@ -101,20 +107,32 @@ export default function Dashboard() {
           <div className="db1_content">
             <div className="db1_text_box">
               <div>
-                <p>생산량</p>
-                <span>{actualCount.toLocaleString()}</span>
+                <p className="db_content_semititle">생산량</p>
+                <span className="db_content_num">{actualCount.toLocaleString()}</span>
                 <span>파우치</span>
               </div>
               <div>
-                <p>목표 대비</p>
-                <span>{targetRate}</span>
-                <span>%</span>
+                <p className="db_content_semititle">목표 대비</p>
+                <span className="db_content_num" style={{color: "#3b82f6"}}>{targetRate}</span>
+                <span style={{ color: "#3b82f6"}}>%</span>
               </div>
             </div>
-            <div>#bar형 그래프</div>
+            {/* 파란색 프로그레스 바 */}
+            <div style={{ width: "100%", height: "8px", backgroundColor: "#eee", borderRadius: "4px", overflow: "hidden", marginTop: "10px" }}>
+              <div 
+                style={{ 
+                  width: `${Math.min(targetRateNum, 100)}%`, 
+                  height: "100%", 
+                  backgroundColor: "#3b82f6", 
+                  borderRadius: "4px",
+                  transition: "width 0.4s ease"
+                }} 
+              />
+            </div>
           </div>
         </div>
 
+        {/* 불량 건수 카드 */}
         <div className="dash_board1">
           <div>
             <img className="icon" src={icon2} alt="품질 아이콘" />
@@ -122,20 +140,32 @@ export default function Dashboard() {
           <div className="db1_content">
             <div className="db1_text_box">
               <div>
-                <p>불량 건수</p>
-                <span>{defectCount.toLocaleString()}</span>
+                <p className="db_content_semititle">불량 건수</p>
+                <span className="db_content_num">{defectCount.toLocaleString()}</span>
                 <span>파우치</span>
               </div>
               <div>
-                <p>평균 불량률 대비</p>
-                <span>{defectRateDiffFormatted}</span>
-                <span>%</span>
+                <p className="db_content_semititle">평균 불량률 대비</p>
+                <span className="db_content_num" style={{ color: "#22c55e" }}>{defectRateDiffFormatted}</span>
+                <span style={{ color: "#22c55e" }}>%</span>
               </div>
             </div>
-            <div>#bar형 그래프</div>
+            {/* 초록색 프로그레스 바 */}
+            <div style={{ width: "100%", height: "8px", backgroundColor: "#eee", borderRadius: "4px", overflow: "hidden", marginTop: "10px" }}>
+              <div 
+                style={{ 
+                  width: `${defectProgressPercent}%`, 
+                  height: "100%", 
+                  backgroundColor: "#22c55e", 
+                  borderRadius: "4px",
+                  transition: "width 0.4s ease"
+                }} 
+              />
+            </div>
           </div>
         </div>
 
+        {/* 이상 알림 건수 카드 (기존 유지) */}
         <div className="dash_board1">
           <div>
             <img className="icon" src={icon3} alt="알림 아이콘" />
@@ -143,13 +173,13 @@ export default function Dashboard() {
           <div className="db1_content">
             <div className="db1_text_box">
               <div>
-                <p>이상 알림 건수</p>
-                <span>{anomalyCount}</span>
+                <p className="db_content_semititle">이상 알림 건수</p>
+                <span className="db_content_num">{anomalyCount}</span>
                 <span>건</span>
               </div>
               <div>
-                <p>목표 대비</p>
-                <span>{anomalyTargetRate}</span>
+                <p className="db_content_semititle">목표 대비</p>
+                <span className="db_content_num">{anomalyTargetRate}</span>
                 <span>%</span>
               </div>
             </div>
@@ -182,17 +212,17 @@ export default function Dashboard() {
           <div className="dash_board2">
             <div className="db2_title">실시간 공정 현황</div>
             <div className="table_box">
-              <table>
+              <table style={{width: "500px"}}>
                 <tbody>
                   {processStages.map((stage) => (
                     <tr key={stage.id}>
-                      <td>{stage.name}</td>
+                      <td> {stage.name}</td>
                       <td>
                         <div className={stage.status}>
-                          {stage.status === "done" ? "완료" : stage.status === "ing" ? "진행" : "대기"}
+                          <div>{stage.status === "done" ? "완료" : stage.status === "ing" ? "진행" : "대기"}</div>
                         </div>
                       </td>
-                      <td>{stage.text}</td>
+                      <td><div className="table_coment">{stage.text}</div></td>
                     </tr>
                   ))}
                 </tbody>

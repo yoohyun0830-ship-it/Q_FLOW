@@ -1,16 +1,15 @@
-/* *{
-    border: 1px solid red;
-} */
-.row1 {
+
+.row {
     width: 100%;
     display: flex; /* 자식 요소들을 가로 배치 */
     gap: 10px;    /* 자식 요소 사이의 간격 지정 (선택 사항) */
+    height: 150px;
 }
 .row2 {
     width: 100%;
     display: flex; /* 자식 요소들을 가로 배치 */
     gap: 10px;    /* 자식 요소 사이의 간격 지정 (선택 사항) */
-    alignItems: stretch;
+    margin-top: 10px;
 }
 .link_box{
     height: 100%;
@@ -21,6 +20,7 @@
     background-color: white;
     border-radius: 15px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    padding: 5px 10px;
 }
 
 .db1_content{
@@ -30,8 +30,13 @@
 .db1_text_box{
     display: flex;
 }
-
-
+.db_content_semititle{
+    font-weight: bolder;
+}
+.db_content_num{
+    font-Weight: bolder;
+    font-size: 35px;
+}
 .icon{
     width: 125px;
 }
@@ -51,8 +56,55 @@
     flex: 1;
     background-color: white;
     border-radius: 15px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: #e1e7f0 solid 1px;
     cursor: 'pointer';
     height: 100%;
+    padding: 10px 10px;
 }
 
+.waiting{
+    background-color: gray;
+    color: white;
+    font-weight: bold;
+    border-radius: 5px;
+    height: 25px;
+}
+
+.done{
+    background-color: #1d4ed8;
+    color: white;
+    font-weight: bold;
+    border-radius: 5px;
+    height: 25px;
+}
+.table_coment{
+    text-align: right;
+    margin-right: 10px;
+}
+.ing{
+    background-color: green;
+    color: white;
+    font-weight: bold;
+    border-radius: 5px;
+    height: 25px;
+}
+
+/* 실시간 공정 현황 상태값 텍스트 중앙 정렬 */
+.done>div,
+.ing>div,
+.waiting>div {
+  width: fit-content;
+  margin: 0 auto;
+}
+.db2_title{
+    font-weight: bolder;
+}
+table{
+    border-collapse: collapse;
+    height: 320px ;
+    margin-top: 10px;
+}
+tr{
+    border-top:solid 1px #e1e7f0;
+    border-bottom:  solid 1px #e1e7f0;
+}
