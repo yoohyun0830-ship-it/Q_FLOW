@@ -19,7 +19,6 @@ const customDataLabels = {
   afterDatasetsDraw(chart) {
     const { ctx } = chart;
     ctx.save();
-    ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -221,7 +220,7 @@ const DashboardChart = ({ batchId, filterOption }) => {
   }
 
   return (
-    <div style={{ width: '100%', height: '350px' }}>
+    <div style={{ width: '100%', height: '650px' }}>
       <Bar data={data} options={options} plugins={[customDataLabels]} />
     </div>
   );
