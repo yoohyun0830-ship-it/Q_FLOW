@@ -1,673 +1,830 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 
 // 품질관리 css 연결
 import "../css/quality.css";
-import axios from "axios";
 
-export default function Quality(){
-    
-    // 현재 선택된 품질관리 탭
-    const [tab, setTab] = useState("bulk");
+const BASE_URL = "http://localhost:8080";
+const PAGE_SIZE = 20;
 
-    // Spring에서 받아온 벌크 품질검사 데이터 저장
-    const [bulkQc, setBulkQc] = useState([]);
+// 탭마다 사용하는 API, 필드, 결과 코드
+const TYPES = {
+    bulk: {
+        title: "벌크 품질검사",
+        path: "/mask/bulk-qc",
+        id: "qc_id",
+        date: "sample_time",
+        result: "overall_qc_result",
+        pass: "QC_RESULT_PASS",
+        fail: "QC_RESULT_FAIL",
 
-    // Spring에서 받아온 완제품 품질검사 데이터 저장
-    const [finishedQc, setFinishedQc] = useState([]);
+        columns: [
+            ["qc_id", "검사번호"],
+            ["batchId", "LOT 번호"],
+            ["sample_time", "검사시간"],
+            ["userId", "담당자"],
+            ["ph_measured", "pH"],
+            ["viscosity_measured", "점도"],
+            ["specific_gravity", "비중"],
+            ["appearance_code", "외관"],
+            ["microbubble_code", "미세기포"],
+            ["microbial_cfu", "미생물(CFU)"]
+        ],
 
-    // 완제품 품질검사 검색 결과
-    const [filteredFinishedQc, setFilteredFinishedQc] = useState([]);
+        fields: [
+            ["qc_id", "검사번호"],
+            ["batchId", "LOT 번호"],
+            ["sample_time", "검사시간"],
+            ["userId", "담당자 번호"],
+            ["ph_measured", "측정 pH"],
+            ["ph_criteria", "pH 기준"],
+            ["viscosity_measured", "측정 점도"],
+            ["viscosity_criteria", "점도 기준"],
+            ["specific_gravity", "측정 비중"],
+            ["sg_criteria", "비중 기준"],
+            ["appearance_code", "외관"],
+            ["microbubble_code", "미세기포"],
+            ["microbial_cfu", "미생물(CFU)"],
+            ["overall_qc_result", "종합 검사결과"],
+            ["qc_notes_code", "검사 비고"],
+            ["record_source", "데이터 출처"],
+            ["createdAt", "등록시간"],
+            ["updatedAt", "수정시간"]
+        ]
+    },
 
-    // 완제품 검사 현재 페이지
-    const [finishedPage, setFinishedPage] = useState(1);
+    finished: {
+        title: "완제품 품질검사",
+        path: "/mask/filling-packagings",
+        id: "pouch_id",
+        date: "timestamp",
+        result: "final_disposition",
+        pass: "DISP_ACCEPTED",
+        fail: "DISP_REJECTED",
 
-    // 한 페이지에 보여줄 데이터 개수
-    const finishedPageSize = 20;
+        columns: [
+            ["pouch_id", "제품번호"],
+            ["batchId", "LOT 번호"],
+            ["timestamp", "검사시간"],
+            ["packaging_line", "포장라인"],
+            ["essence_net_weight_g", "에센스 중량(g)"],
+            ["upper_seal_temp_c", "상부 실링온도(℃)"],
+            ["lower_seal_temp_c", "하부 실링온도(℃)"],
+            ["seal_pressure_bar", "실링압력(bar)"],
+            ["checkweigher_status", "중량검사"],
+            ["metal_detector_status", "금속검사"],
+            ["vision_inspection_status", "비전검사"]
+        ],
 
-    // 상세조회에서 선택한 벌크 품질검사 데이터
-    const [selectedBulkQc, setSelectedBulkQc] = useState(null);
+        fields: [
+            ["pouch_id", "제품번호"],
+            ["batchId", "LOT 번호"],
+            ["timestamp", "검사시간"],
+            ["userId", "담당자 번호"],
+            ["packaging_line", "포장라인"],
+            ["sheet_material_code", "시트 자재코드"],
+            ["sheet_lot_no", "시트 LOT"],
+            ["sheet_dry_weight_g", "시트 중량(g)"],
+            ["fill_weight_1st_g", "1차 충진량(g)"],
+            ["fill_weight_2nd_g", "2차 충진량(g)"],
+            ["essence_net_weight_g", "에센스 순중량(g)"],
+            ["pouch_tare_weight_g", "파우치 중량(g)"],
+            ["gross_total_weight_g", "완제품 총중량(g)"],
+            ["upper_seal_temp_c", "상부 실링온도(℃)"],
+            ["lower_seal_temp_c", "하부 실링온도(℃)"],
+            ["seal_pressure_bar", "실링압력(bar)"],
+            ["n2_residual_o2_pct", "잔존 산소비율(%)"],
+            ["checkweigher_status", "중량검사"],
+            ["metal_detector_status", "금속검사"],
+            ["vision_inspection_status", "비전검사"],
+            ["final_disposition", "최종 판정"],
+            ["record_source", "데이터 출처"],
+            ["createdAt", "등록시간"],
+            ["updatedAt", "수정시간"]
+        ]
+    }
+};
 
-    // 품질검사 검색 조건
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [selectedLot, setSelectLot] = useState("");
-    const [selectedResult, setSelectedResult] = useState("");
+// 화면에 표시할 값
+function showValue(key, value) {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
 
-    // 검색결과로 화면에 출력할 벌크 품질검사 데이터
-    const [filteredBulkQc, setFilteredBulQc] = useState([]);
+    if (
+        ["sample_time", "timestamp", "createdAt", "updatedAt"]
+            .includes(key)
+    ) {
+        return String(value).replace("T", " ").slice(0, 19);
+    }
 
-    // 벌크 품질검사 전체조회
-    useEffect(() => {
-        axios
-            .get("http://localhost:8080/mask/bulk-qc")
-            .then((response) =>{
-                console.log("벌크 품질검사:" , response.data)
-                setBulkQc(response.data);
-                setFilteredBulQc(response.data);
-            })    
-            .catch((error)=>{
-                console.log("벌크 품질검사 조회 실패" , error);
-            });
-    },[]);
+    if (value === "APP_PASS_PALEBLUE") return "적합";
+    if (value === "BUBBLE_PASS_ZERO") return "없음";
 
-    // 완제품 품질검사 전체조회
-    useEffect(() => {
-        axios
-            .get("http://localhost:8080/mask/filling-packagings")
-            .then((response) =>{
-                console.log("완제품 품질검사:" , response.data);
-                setFinishedQc(response.data);
-                setFilteredFinishedQc(response.data);
-            })
-            .catch((error)=>{
-                console.log("완제품 품질덤사 조회 실페" , error);
-            });
-    },[]);
+    return String(value);
+}
 
-    // 완제품 검사 페이지네이션
-    // 전체 페이지 수
-    const finishedTotalPages = Math.ceil(
-    filteredFinishedQc.length / finishedPageSize
+// 오류 메시지
+function errorText(error) {
+    if (error.response?.status === 400) {
+        return "검색조건을 확인해 주세요.";
+    }
+
+    if (error.response?.status === 404) {
+        return "조회 주소 또는 검사 기록을 찾을 수 없습니다.";
+    }
+
+    if (error.response) {
+        return `조회 실패: HTTP ${error.response.status}`;
+    }
+
+    if (error.isAxiosError) {
+        return "Spring 실행 상태와 서버 주소, CORS 설정을 확인해 주세요.";
+    }
+
+    return error.message || "조회 중 오류가 발생했습니다.";
+}
+
+// 합격·불합격 배지
+function ResultBadge({ value, config }) {
+    const state =
+        value === config.pass
+            ? "pass"
+            : value === config.fail
+              ? "fail"
+              : "other";
+
+    return (
+        <span className={`quality-badge ${state}`}>
+            {state === "pass"
+                ? "합격"
+                : state === "fail"
+                  ? "불합격"
+                  : showValue("", value)}
+        </span>
     );
-
-    // 현재 페이지 시작 위치
-    const finishedStartIndex =
-    (finishedPage - 1) * finishedPageSize;
-
-    // 현재 페이지에서 보여줄 데이터 20개
-    const currentFinishedQc = filteredFinishedQc.slice(
-    finishedStartIndex,
-    finishedStartIndex + finishedPageSize
-);
-    
-    // 벌크 품질검사 검색
-    const searchBulQc = () => {
-        const result = bulkQc.filter((qc)=>{
-            
-            // LOT 조건
-            const lotMatch = selectedLot === "" ||
-            qc.batchId === selectedLot;
-
-            // 검사 결과 조건
-            const resultMatch = selectedResult === "" ||
-            qc.overall_qc_result === selectedResult;
-
-            // 검사일자
-            const qcDate = qc.sample_time?
-            qc.sample_time.substring(0,10) : "";
-
-            // 시작일 조건
-            const startMatch = startDate === "" ||
-            qcDate >= startDate;
-
-            // 종료일 조건
-            const endMatch = endDate === "" ||
-            qcDate <= endDate;
-
-            return(
-                lotMatch &&
-                resultMatch &&
-                startMatch &&
-                endMatch
-            );
-        });
-
-        setFilteredBulQc(result);
-    };
-
-    // 완제품 품질검사 검색
-    const searchFinishedQc = () => {
-
-        const result = finishedQc.filter((item) => {
-
-            // LOT 조건
-            const lotMatch =
-                selectedLot === "" ||
-                item.batchId === selectedLot;
-
-            // 검사 결과 조건
-            const resultMatch =
-                selectedResult === "" ||
-                item.final_disposition === selectedResult;
-
-            // 검사일자
-            const finishedDate = item.timestamp
-                ? item.timestamp.substring(0, 10)
-                : "";
-
-            // 시작일 조건
-            const startMatch =
-                startDate === "" ||
-                finishedDate >= startDate;
-
-            // 종료일 조건
-            const endMatch =
-                endDate === "" ||
-                finishedDate <= endDate;
-
-            return (
-                lotMatch &&
-                resultMatch &&
-                startMatch &&
-                endMatch
-            );
-        });
-
-        setFilteredFinishedQc(result);
-
-        // 검색하면 1페이지부터 보여주기
-        setFinishedPage(1);
-    };
-
-    return(
-        <>
-        {/*============================
-            1. 품질관리 페이지 제목 
-        ================================*/}
-        <div className="quality-page">
-
-            <div className="quality-header">
-                <h1>품질 관리</h1>
-                <p>벌크부터 완제품까지, 품질을 관리합니다</p>
-            </div>
-
-         {/*============================
-             2. 품질검사 조회 조건 
-        ================================*/}
-        <div className="quality-filter">
-
-            {/* 조회 시작일 */}
-            <input 
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-            />
-            <span>~</span>
-            {/* 조회 종료일 */}
-            <input 
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)} 
-            />
-
-            {/* LOT선택 */}
-            <select
-                value={selectedLot}
-                onChange={(event)=> setSelectLot(event.target.value)}
-            >
-                <option value=""> 전체 LOT</option>
-                {bulkQc.map((qc)=>(
-                    <option 
-                        key={qc.qc_id}
-                        value={qc.batchId}
-                    >
-                        {qc.batchId}
-                    </option>
-                ))}
-            </select>
-
-            {/* 검사 결과 선택 */}
-            <select
-                value={selectedResult}
-                onChange={(event) => setSelectedResult(event.target.value)}
-            >
-                <option value="">전체결과</option>
-                {tab === "bulk" ? (<>
-                <option value="QC_RESULT_PASS">합격</option>
-                <option value="QC_RESULT_FAIL">불합격</option>
-                </>):(<>
-                <option value="DISP_ACCEPTED">합격</option>
-                <option value="DISP_REJECTED">불합격</option>
-                </>)}
-                
-            </select>
-            
-            { /* 조회버튼 */}
-            <button className="quality-search-btn"
-                    onClick={() => {
-                        if (tab === "bulk") { searchBulQc();
-                        } else { searchFinishedQc();}
-                    }}
-            >
-                조회
-            </button>
-        </div>
-
-         {/*============================
-                3. 품질관리 탭 
-        ================================*/}
-        <div className="quality-tabs">
-
-            {/* 벌크 품질검사 */}
-            <button className={tab === "bulk" ? "active" : ""}
-                    onClick={()=>setTab("bulk")}
-            >
-                벌크 검사
-            </button>
-            
-            {/* 완제품 품질검사 */}
-            <button className={tab === "finished" ? "active" : ""}
-                    onClick={()=>setTab("finished")}
-            >
-                완제품 검사
-            </button>
-        </div>
-
-         {/*============================
-                4. 품질관리 내용
-        ================================*/}
-        <div className="quality-content">
-
-        {/*============================
-                4-1. 벌크 품질검사 
-        ================================*/}
-        {tab === "bulk" && (
-            <div className="quality-table-wrap">
-                <table className="quality-table">
-                    <thead>
-                        <tr>
-                            <th>No.</th>
-                            <th>LOT 번호</th>
-                            <th>pH</th>
-                            <th>점도</th>
-                            <th>비중</th>
-                            <th>외관</th>
-                            <th>미세기포</th>
-                            <th>미생물</th>
-                            <th>검사 결과</th>
-                            <th>상세</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-
-                        {/* 벌크 품질검사 데이터가 존재하면 출력 */}
-                        {filteredBulkQc.length>0?(
-                          filteredBulkQc.map((qc, index) => (
-                                <tr key={qc.qc_id}>
-                                    {/* 순번 */}
-                                    <td>{index + 1}</td>
-
-                                    {/* LOT 번호 */}
-                                    <td>{qc.batchId}</td>
-
-                                    {/* pH */}
-                                    <td>{qc.ph_measured}</td>
-
-                                    {/* 점도 */}
-                                    <td>{qc.viscosity_measured}</td>
-
-                                    {/* 비중 */}
-                                    <td>{qc.specific_gravity}</td>
-
-                                    {/* 외관 */}
-                                    <td>
-                                        {qc.appearance_code === "APP_PASS_PALEBLUE"
-                                            ? "적합"
-                                            : qc.appearance_code}
-                                    </td>
-
-                                    {/* 미세기포 */}
-                                    <td>
-                                        {qc.microbubble_code === "BUBBLE_PASS_ZERO"
-                                            ? "없음"
-                                            : qc.microbubble_code}
-                                    </td>
-
-                                    {/* 미생물 */}
-                                    <td>{qc.microbial_cfu} CFU</td>
-
-                                    {/* 최종 검사 결과 */}
-                                    <td>
-                                        <span className=
-                                        {qc.overall_qc_result === "QC_RESULT_PASS"
-                                            ? "quality-result-pass"
-                                            : qc.overall_qc_result === "QC_RESULT_FAIL"
-                                            ? "quality-result-fail"
-                                            : ""}
-                                            >
-                                                {qc.overall_qc_result === "QC_RESULT_PASS"
-                                                    ? "합격"
-                                                    : qc.overall_qc_result === "QC_RESULT_FAIL"
-                                                    ? "불합격"
-                                                    : qc.overall_qc_result} 
-                                        </span>
-                                    </td>
-                                    {/* 상세조회 */}
-                                    <td>
-                                        <button
-                                            className="quality-detail-btn"
-                                            onClick={() => setSelectedBulkQc(qc)}
-                                        >
-                                            상세
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td 
-                                    colSpan="10"
-                                    className="quality-no-data"
-                                >조회된 벌크검사 데이터가 없습니다.
-                                </td>
-                            </tr>
-                        )}
-                        
-                    </tbody>
-                </table>
-            </div>
-        )}
-
-        {/*============================
-                4-2. 완제품 품질검사 
-        ================================*/}
-        {tab === "finished" && (
-            <div className="quality-table-wrap">
-                <table className="quality-table">
-                    <thead>
-                        <tr>
-                            <th>No.</th>
-                            <th>LOT 번호</th>
-                            <th>제품 ID</th>
-                            <th>충진량(g)</th>
-                            <th>상부 실링온도(℃)</th>
-                            <th>하부 실링온도(℃)</th>
-                            <th>실링 압력(bar)</th>
-                            <th>중량 검사</th>
-                            <th>금속 검사</th>
-                            <th>비전 검사</th>
-                            <th>검사 결과</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {finishedQc.length > 0? (
-                            currentFinishedQc.map((item, index)=>(
-                                <tr key={item.pouch_id}>
-
-                                    {/* 순번 */}
-                                    <td>{finishedStartIndex + index + 1}</td>
-
-                                    {/* LOT번호 */}
-                                    <td>{item.batchId}</td>
-
-                                    {/* 제품ID */}
-                                    <td>{item.pouch_id}</td>
-
-                                    {/* 충진량 */}
-                                    <td>{item.essence_net_weight_g}</td>
-
-                                    {/* 상부 실링온도 */}
-                                    <td>{item.upper_seal_temp_c}</td>
-
-                                    {/* 하부 실링온도 */}
-                                    <td>{item.lower_seal_temp_c}</td>
-
-                                    {/* 실링압력 */}
-                                    <td>{item.seal_pressure_bar}</td>
-
-                                    {/* 중량 검사 */}
-                                    <td>{item.checkweigher_status}</td>
-
-                                    {/* 금속 검사 */}
-                                    <td>{item.metal_detector_status}</td>
-
-                                    {/* 비전 검사 */}
-                                    <td>{item.vision_inspection_status}</td>
-
-                                    {/* 최종 검사 결과 */}
-                                    <td>{item.final_disposition}</td>
-                                </tr>
-                                ))
-                            ):(
-                                <tr>
-                                    <td
-                                        colSpan="11"
-                                        className="quality-no-data"
-                                    >
-                                        조회된 완제품 품질검사 데이터가 없습니다.
-                                    </td>
-                                </tr>
-                            )}
-                    </tbody>
-                </table>
-                
-                {/* 완제품 검사 페이지네이션 */}
-                {finishedTotalPages > 1 && (
-                    <div className="quality-pagination">
-
-                        {/* 이전 */}
-                        <button
-                            onClick={() =>
-                                setFinishedPage((prev) => prev - 1)
-                            }
-                            disabled={finishedPage === 1}
-                        >
-                            이전
-                        </button>
-
-                        {/* 현재 페이지 */}
-                        <span>
-                            {finishedPage} / {finishedTotalPages}
-                        </span>
-
-                        {/* 다음 */}
-                        <button
-                            onClick={() =>
-                                setFinishedPage((prev) => prev + 1)
-                            }
-                            disabled={finishedPage === finishedTotalPages}
-                        >
-                            다음
-                        </button>
-
-                    </div>
-                )}
-                </div>)}
-            </div>
-            
-        </div>
-            {/* ========================================
-                    5. 벌크 품질검사 상세조회 모달
-            ======================================== */}
-            {selectedBulkQc && (
-                <div className="quality-modal-overlay">
-
-                    <div className="quality-modal">
-
-                        {/* 모달 상단 */}
-                        <div className="quality-modal-header">
-
-                            <div>
-                                <h2>벌크 품질검사 상세</h2>
-                                <p>{selectedBulkQc.batchId}</p>
-                            </div>
-
-                            <button
-                                className="quality-modal-close"
-                                onClick={() => setSelectedBulkQc(null)}
-                            >
-                                ×
-                            </button>
-
-                        </div>
-
-                        {/* 검사 기본정보 */}
-                        <div className="quality-detail-section">
-                            <h3>검사 정보</h3>
-
-                            <div className="quality-detail-grid">
-                                <div className="quality-detail-item">
-                                    <span>QC 번호</span>
-                                    <strong>{selectedBulkQc.qc_id}</strong>
-                                </div>
-
-                                <div className="quality-detail-item">
-                                    <span>LOT 번호</span>
-                                    <strong>{selectedBulkQc.batchId}</strong>
-                                </div>
-
-                                <div className="quality-detail-item">
-                                    <span>검사 시간</span>
-                                    <strong>
-                                        {selectedBulkQc.sample_time
-                                            ? selectedBulkQc.sample_time.replace("T", " ")
-                                            : "-"}
-                                    </strong>
-                                </div>
-
-                                <div className="quality-detail-item">
-                                    <span>검사자</span>
-                                    <strong>
-                                        {selectedBulkQc.userId ?? "-"}
-                                    </strong>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        {/* 주요 품질 측정값 */}
-                        <div className="quality-detail-section">
-                            <h3>품질 측정 결과</h3>
-
-                            <div className="quality-detail-grid">
-
-                                {/* pH */}
-                                <div className="quality-detail-item">
-                                    <span>pH</span>
-
-                                    <strong>
-                                        {selectedBulkQc.ph_measured}
-                                    </strong>
-
-                                    <small>
-                                        기준: {selectedBulkQc.ph_criteria
-                                            ?.replace("_", " ~ ")}
-                                    </small>
-                                </div>
-
-                                {/* 점도 */}
-                                <div className="quality-detail-item">
-                                    <span>점도</span>
-
-                                    <strong>
-                                        {selectedBulkQc.viscosity_measured}
-                                    </strong>
-
-                                    <small>
-                                        기준: {selectedBulkQc.viscosity_criteria
-                                            ?.replace("_", " ~ ")}
-                                    </small>
-                                </div>
-
-                                {/* 비중 */}
-                                <div className="quality-detail-item">
-                                    <span>비중</span>
-
-                                    <strong>
-                                        {selectedBulkQc.specific_gravity}
-                                    </strong>
-
-                                    <small>
-                                        기준: {selectedBulkQc.sg_criteria
-                                            ?.replace("_", " ~ ")}
-                                    </small>
-                                </div>
-
-                                {/* 미생물 */}
-                                <div className="quality-detail-item">
-                                    <span>미생물</span>
-
-                                    <strong>
-                                        {selectedBulkQc.microbial_cfu} CFU
-                                    </strong>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        {/* 기타 검사 결과 */}
-                        <div className="quality-detail-section">
-
-                            <h3>기타 검사 결과</h3>
-
-                            <div className="quality-detail-grid">
-
-                                <div className="quality-detail-item">
-                                    <span>외관</span>
-                                    <strong>
-                                        {selectedBulkQc.appearance_code ===
-                                        "APP_PASS_PALEBLUE"
-                                            ? "적합"
-                                            : selectedBulkQc.appearance_code}
-                                    </strong>
-                                </div>
-
-                                <div className="quality-detail-item">
-                                    <span>미세기포</span>
-                                    <strong>
-                                        {selectedBulkQc.microbubble_code ===
-                                        "BUBBLE_PASS_ZERO"
-                                            ? "없음"
-                                            : selectedBulkQc.microbubble_code}
-                                    </strong>
-                                </div>
-
-
-                                <div className="quality-detail-item">
-                                    <span>최종 검사 결과</span>
-
-                                    <strong
-                                        className={
-                                            selectedBulkQc.overall_qc_result ===
-                                            "QC_RESULT_PASS"
-                                                ? "quality-result-pass"
-                                                : selectedBulkQc.overall_qc_result ===
-                                                "QC_RESULT_FAIL"
-                                                ? "quality-result-fail"
-                                                : ""
-                                        }
-                                    >
-                                        {selectedBulkQc.overall_qc_result ===
-                                        "QC_RESULT_PASS"
-                                            ? "합격"
-                                            : selectedBulkQc.overall_qc_result ===
-                                            "QC_RESULT_FAIL"
-                                            ? "불합격"
-                                            : selectedBulkQc.overall_qc_result}
-                                    </strong>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        {/* 비고 */}
-                        <div className="quality-detail-section">
-                            <h3>비고</h3>
-
-                            <div className="quality-detail-note">
-                                {selectedBulkQc.qc_notes_code || "-"}
-                            </div>
-
-                        </div>
-
-                        {/* 모달 하단 */}
-                        <div className="quality-modal-footer">
-                            <button
-                                onClick={() => setSelectedBulkQc(null)}
-                            >
-                                닫기
-                            </button>
-
-                        </div>
-
-                    </div>
-
+}
+
+// PK 상세조회 팝업
+function QualityDetail({ config, id, onClose }) {
+    const dialogRef = useRef(null);
+
+    const [detail, setDetail] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    // 팝업 열기·닫기
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        dialog.showModal();
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            dialog.close();
+            document.body.style.overflow = previousOverflow;
+        };
+    }, []);
+
+    // 상세 API 요청
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function fetchDetail() {
+            setLoading(true);
+            setError("");
+            setDetail(null);
+
+            try {
+                const response = await axios.get(
+                    `${BASE_URL}${config.path}/${encodeURIComponent(id)}`,
+                    { signal: controller.signal }
+                );
+
+                if (controller.signal.aborted) return;
+
+                if (!response.data || response.data[config.id] == null) {
+                    throw new Error("상세조회 결과가 없습니다.");
+                }
+
+                setDetail(response.data);
+            } catch (err) {
+                if (!controller.signal.aborted) {
+                    setError(errorText(err));
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        fetchDetail();
+
+        return () => controller.abort();
+    }, [config, id]);
+
+    return (
+        <dialog
+            ref={dialogRef}
+            className="quality-dialog"
+            aria-labelledby="quality-detail-title"
+            onCancel={event => {
+                event.preventDefault();
+                onClose();
+            }}
+        >
+            <header className="quality-dialog-header">
+                <div>
+                    <h2 id="quality-detail-title">
+                        {config.title} 상세
+                    </h2>
+                    <p>{id}</p>
                 </div>
 
-            )}
-            </>
-            );
+                <button
+                    type="button"
+                    autoFocus
+                    aria-label="상세정보 닫기"
+                    onClick={onClose}
+                >
+                    ×
+                </button>
+            </header>
+
+            <div
+                className="quality-dialog-body"
+                aria-busy={loading}
+            >
+                {loading ? (
+                    <p className="quality-message" role="status">
+                        상세정보를 조회하고 있습니다.
+                    </p>
+                ) : error ? (
+                    <p className="quality-error" role="alert">
+                        {error}
+                    </p>
+                ) : detail && (
+                    <dl className="quality-detail-grid">
+                        {config.fields.map(([key, label]) => (
+                            <div key={key}>
+                                <dt>{label}</dt>
+                                <dd>
+                                    {key === config.result ? (
+                                        <ResultBadge
+                                            value={detail[key]}
+                                            config={config}
+                                        />
+                                    ) : (
+                                        showValue(key, detail[key])
+                                    )}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+            </div>
+
+            <footer className="quality-dialog-footer">
+                <button
+                    type="button"
+                    className="quality-primary"
+                    onClick={onClose}
+                >
+                    닫기
+                </button>
+            </footer>
+        </dialog>
+    );
+}
+
+// 각 탭의 검색·목록
+function QualityRecords({ type }) {
+    const config = TYPES[type];
+
+    const [draft, setDraft] = useState({
+        startDate: "",
+        endDate: "",
+        batchId: "",
+        result: "",
+        userId: ""
+    });
+
+    const [condition, setCondition] = useState({
+        startDate: "",
+        endDate: "",
+        batchId: "",
+        result: "",
+        userId: ""
+    });
+
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [inputError, setInputError] = useState("");
+    const [reload, setReload] = useState(0);
+    const [page, setPage] = useState(0);
+    const [selectedId, setSelectedId] = useState(null);
+
+    // 벌크: 서버 조건검색
+    // 완제품: 현재 API가 전체조회만 지원하므로 리액트에서 검색
+    const serverCondition = type === "bulk" ? condition : null;
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function fetchList() {
+            setLoading(true);
+            setError("");
+            setRows([]);
+
+            try {
+                const params = serverCondition
+                    ? {
+                        startDate:
+                            serverCondition.startDate || undefined,
+                        endDate:
+                            serverCondition.endDate || undefined,
+                        batchId:
+                            serverCondition.batchId || undefined,
+                        overallQcResult:
+                            serverCondition.result || undefined,
+                        userId:
+                            serverCondition.userId === ""
+                                ? undefined
+                                : Number(serverCondition.userId)
+                    }
+                    : {};
+
+                const response = await axios.get(
+                    `${BASE_URL}${config.path}`,
+                    {
+                        signal: controller.signal,
+                        params
+                    }
+                );
+
+                if (controller.signal.aborted) return;
+
+                if (!Array.isArray(response.data)) {
+                    throw new Error(
+                        "목록 API가 배열을 반환하는지 확인해 주세요."
+                    );
+                }
+
+                // 최신 검사순, 시간이 같으면 PK순
+                const sorted = [...response.data].sort((a, b) =>
+                    String(b[config.date] || "")
+                        .localeCompare(String(a[config.date] || "")) ||
+                    String(a[config.id]).localeCompare(
+                        String(b[config.id]),
+                        undefined,
+                        { numeric: true }
+                    )
+                );
+
+                setRows(sorted);
+                setPage(0);
+            } catch (err) {
+                if (!controller.signal.aborted) {
+                    setError(errorText(err));
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
+        }
+
+        fetchList();
+
+        return () => controller.abort();
+    }, [config, serverCondition, reload]);
+
+    function changeDraft(event) {
+        const { name, value } = event.target;
+
+        setDraft(previous => ({
+            ...previous,
+            [name]: value
+        }));
+
+        setInputError("");
+    }
+
+    function search(event) {
+        event.preventDefault();
+
+        if (
+            draft.startDate &&
+            draft.endDate &&
+            draft.startDate > draft.endDate
+        ) {
+            setInputError(
+                "시작일은 종료일보다 늦을 수 없습니다."
+            );
+            return;
+        }
+
+        if (draft.userId !== "") {
+            const id = Number(draft.userId);
+
+            if (
+                !Number.isInteger(id) ||
+                id < 1 ||
+                id > 2147483647
+            ) {
+                setInputError(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+                return;
+            }
+        }
+
+        setInputError("");
+        setSelectedId(null);
+        setPage(0);
+
+        setCondition({
+            ...draft,
+            batchId: draft.batchId.trim()
+        });
+    }
+
+    function reset() {
+        const empty = {
+            startDate: "",
+            endDate: "",
+            batchId: "",
+            result: "",
+            userId: ""
+        };
+
+        setDraft({ ...empty });
+        setCondition({ ...empty });
+        setInputError("");
+        setSelectedId(null);
+        setPage(0);
+    }
+
+    // 완제품 조건검색
+    // 벌크는 서버에서 이미 검색한 결과를 그대로 사용
+    const filteredRows = type === "bulk"
+        ? rows
+        : rows.filter(row => {
+            const date = String(row.timestamp || "").slice(0, 10);
+
+            return (
+                (!condition.startDate ||
+                    (date && date >= condition.startDate)) &&
+                (!condition.endDate ||
+                    (date && date <= condition.endDate)) &&
+                (!condition.batchId ||
+                    row.batchId === condition.batchId) &&
+                (!condition.result ||
+                    row.final_disposition === condition.result) &&
+                (condition.userId === "" ||
+                    Number(row.userId) === Number(condition.userId))
+            );
+        });
+
+    // 요약 카드는 검색 결과 전체 기준
+    const total = filteredRows.length;
+
+    const pass = filteredRows.filter(
+        row => row[config.result] === config.pass
+    ).length;
+
+    const fail = filteredRows.filter(
+        row => row[config.result] === config.fail
+    ).length;
+
+    const other = total - pass - fail;
+
+    // 리액트에서만 20건씩 표시
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+
+    const currentPage = Math.min(
+        page,
+        Math.max(0, totalPages - 1)
+    );
+
+    const visibleRows = filteredRows.slice(
+        currentPage * PAGE_SIZE,
+        (currentPage + 1) * PAGE_SIZE
+    );
+
+    const unavailable = loading || Boolean(error);
+
+    return (
+        <>
+            <div className="quality-summary">
+                {[
+                    ["전체 검사", total, "total"],
+                    ["합격", pass, "pass"],
+                    ["불합격", fail, "fail"]
+                ].map(([label, count, color]) => (
+                    <div
+                        className={`quality-stat ${color}`}
+                        key={label}
+                    >
+                        <span>{label}</span>
+                        <strong>
+                            {unavailable ? "-" : count}
+                        </strong>
+                    </div>
+                ))}
+            </div>
+
+            <p className="quality-summary-note">
+                검색조건 기준
+                {!unavailable && other > 0
+                    ? ` · 기타·미판정 ${other}건 포함`
+                    : ""}
+            </p>
+
+            {/* 검색조건: 항상 표시하는 두 줄 구성 */}
+            <form
+                className="quality-card quality-search"
+                onSubmit={search}
+            >
+                <h2>검색조건</h2>
+
+                <div className="quality-search-top">
+                    <label>
+                        검사 시작일
+                        <input
+                            type="date"
+                            name="startDate"
+                            value={draft.startDate}
+                            onChange={changeDraft}
+                        />
+                    </label>
+
+                    <label>
+                        검사 종료일
+                        <input
+                            type="date"
+                            name="endDate"
+                            value={draft.endDate}
+                            onChange={changeDraft}
+                        />
+                    </label>
+
+                    <label>
+                        LOT 번호
+                        <input
+                            name="batchId"
+                            value={draft.batchId}
+                            onChange={changeDraft}
+                            placeholder="LOT 번호 정확히 입력"
+                        />
+                    </label>
+                </div>
+
+                <div className="quality-search-bottom">
+                    <label>
+                        검사결과
+                        <select
+                            name="result"
+                            value={draft.result}
+                            onChange={changeDraft}
+                        >
+                            <option value="">전체</option>
+                            <option value={config.pass}>합격</option>
+                            <option value={config.fail}>불합격</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        담당자 번호
+                        <input
+                            type="number"
+                            name="userId"
+                            min="1"
+                            max="2147483647"
+                            step="1"
+                            value={draft.userId}
+                            onChange={changeDraft}
+                            placeholder="미입력 시 전체"
+                        />
+                    </label>
+
+                    <div className="quality-actions">
+                        <button type="button" onClick={reset}>
+                            초기화
+                        </button>
+                        <button
+                            type="submit"
+                            className="quality-primary"
+                        >
+                            조회
+                        </button>
+                    </div>
+                </div>
+
+                {inputError && (
+                    <p className="quality-error" role="alert">
+                        {inputError}
+                    </p>
+                )}
+            </form>
+
+            {/* 목록 */}
+            <section className="quality-card" aria-busy={loading}>
+                <div className="quality-list-heading">
+                    <div>
+                        <h2>{config.title} 목록</h2>
+                        <span>
+                            {unavailable ? "-" : `검색 결과 ${total}건`}
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => {
+                            setSelectedId(null);
+                            setPage(0);
+                            setReload(value => value + 1);
+                        }}
+                    >
+                        새로고침
+                    </button>
+                </div>
+
+                {error ? (
+                    <p className="quality-error" role="alert">
+                        {error}
+                    </p>
+                ) : (
+                    <>
+                        <div className="quality-table-wrap">
+                            <table className="quality-table">
+                                <thead>
+                                    <tr>
+                                        <th>No.</th>
+
+                                        {config.columns.map(([key, label]) => (
+                                            <th key={key}>{label}</th>
+                                        ))}
+
+                                        <th>검사결과</th>
+                                        <th>상세</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {loading || total === 0 ? (
+                                        <tr>
+                                            <td
+                                                colSpan={config.columns.length + 3}
+                                                className="quality-message"
+                                            >
+                                                {loading
+                                                    ? "조회 중입니다."
+                                                    : "조건에 맞는 기록이 없습니다."}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        visibleRows.map((row, index) => (
+                                            <tr key={row[config.id]}>
+                                                <td>
+                                                    {currentPage * PAGE_SIZE +
+                                                        index + 1}
+                                                </td>
+
+                                                {config.columns.map(([key]) => (
+                                                    <td key={key}>
+                                                        {showValue(key, row[key])}
+                                                    </td>
+                                                ))}
+
+                                                <td>
+                                                    <ResultBadge
+                                                        value={row[config.result]}
+                                                        config={config}
+                                                    />
+                                                </td>
+
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setSelectedId(
+                                                                row[config.id]
+                                                            )
+                                                        }
+                                                    >
+                                                        상세보기
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {!loading && (
+                            <div className="quality-pagination">
+                                <span>
+                                    총 {total}건 중{" "}
+                                    {total
+                                        ? currentPage * PAGE_SIZE + 1
+                                        : 0}
+                                    –
+                                    {Math.min(
+                                        (currentPage + 1) * PAGE_SIZE,
+                                        total
+                                    )}
+                                    건
+                                </span>
+
+                                <div>
+                                    <button
+                                        type="button"
+                                        disabled={currentPage === 0}
+                                        onClick={() =>
+                                            setPage(currentPage - 1)
+                                        }
+                                    >
+                                        이전
+                                    </button>
+
+                                    <span>
+                                        {totalPages ? currentPage + 1 : 0}
+                                        {" / "}
+                                        {totalPages}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            currentPage + 1 >= totalPages
+                                        }
+                                        onClick={() =>
+                                            setPage(currentPage + 1)
+                                        }
+                                    >
+                                        다음
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+            </section>
+
+            {selectedId !== null && (
+                <QualityDetail
+                    key={selectedId}
+                    config={config}
+                    id={selectedId}
+                    onClose={() => setSelectedId(null)}
+                />
+            )}
+        </>
+    );
+}
+
+// 품질관리 페이지
+export default function Quality() {
+    const [tab, setTab] = useState("bulk");
+
+    return (
+        <div className="quality-page">
+            <header className="quality-header">
+                <h1>품질 관리</h1>
+                <p>검사 기록을 검색하고 상세정보를 확인합니다.</p>
+            </header>
+
+            <nav
+                className="quality-tabs"
+                aria-label="품질검사 종류"
+            >
+                <button
+                    type="button"
+                    className={tab === "bulk" ? "active" : ""}
+                    aria-pressed={tab === "bulk"}
+                    onClick={() => setTab("bulk")}
+                >
+                    벌크 검사
+                </button>
+
+                <button
+                    type="button"
+                    className={tab === "finished" ? "active" : ""}
+                    aria-pressed={tab === "finished"}
+                    onClick={() => setTab("finished")}
+                >
+                    완제품 검사
+                </button>
+            </nav>
+
+            {/* 탭이 바뀌면 해당 탭의 검색·페이지 상태 초기화 */}
+            <QualityRecords key={tab} type={tab} />
+        </div>
+    );
+}
