@@ -13,6 +13,18 @@ export default function Production(){
     // Spring에서 받아온 생산 LOT 목록 저장
     const [batches, setBatches] = useState([]);
 
+    // 현재 페이지 번호 (Spring은 0부터 시작)
+    const [currentPage, setCurrentPage] = useState(0);
+
+    // 전체 페이지 수
+    const [totalPages, setTotalPages] = useState(0);
+
+    // 전체 검색 결과 개수
+    const [totalElements, setTotalElements] = useState(0);
+
+    // 한 페이지에 출력할 개수
+    const pageSize = 10;
+
     // Spring에서 받아온 원료 칭량이력 저장
     const [materials, setMaterials] = useState([]);
 
@@ -41,46 +53,71 @@ export default function Production(){
     // 조회 버튼을 눌렀을 때 실제 적용되는 제품
     const [searchProduct, setSearchProduct] = useState("all");
 
-     // 생산관리 페이지가 처음 실행될 때
-     // Spring의 생산 LOT 전체조회 API 호출
-     useEffect(() => {
+     // 생산 LOT 전체조회 + 조건검색 + 페이징
+    const fetchBatches = (page = 0) => {
         axios
-            .get("http://localhost:8080/mask/batches")
+            .get("http://localhost:8080/mask/batches", {
+                params: {
+                    startDate: searchStartDate || null,
+                    endDate: searchEndDate || null,
+                    productCode:
+                        searchProduct === "all"
+                            ? null
+                            : searchProduct,
+                    status:
+                        searchStatus === "all"
+                            ? null
+                            : searchStatus,
+                    page: page,
+                    size: pageSize
+                }
+            })
             .then((response) => {
 
-                // Spring에서 받아온 데이터 확인
+                console.log("생산 LOT 조회 :", response.data);
+
+                // 실제 LOT 배열
+                setBatches(response.data.content);
+
+                // 페이징 정보
+                setCurrentPage(response.data.number);
+                setTotalPages(response.data.totalPages);
+                setTotalElements(response.data.totalElements);
+            })
+            .catch((error) => {
+                console.log("생산 LOT 조회 실패", error);
+            });
+    };
+        // 검색 조건이 변경되면 Spring API 다시 호출
+        useEffect(() => {
+
+            fetchBatches(0);
+
+        }, [
+            searchStartDate,
+            searchEndDate,
+            searchStatus,
+            searchProduct
+        ]);
+
+        // LOT 개별 상세조회
+        const findOneBatch = (batchId) => {
+        axios
+            .get(`http://localhost:8080/mask/batches/${batchId}`)
+            .then((response) => {
+
+                // 상세조회 결과 확인
                 console.log(response.data);
 
-                // 받아온 LOT 목록을 batches에 저장
-                setBatches(response.data);
+                // 조회한 LOT 하나 저장
+                setSelectedBatch(response.data);
 
-            }).catch((error) => {
-
-                // API 호출 실패 시 오류 확인
-                console.log("생산 LOT 조회 실패", error);
-
+            })
+            .catch((error) => {
+                console.log("LOT 상세조회 실패", error);
             });
 
-    },  []);
-
-    // LOT 개별 상세조회
-    const findOneBatch = (batchId) => {
-    axios
-        .get(`http://localhost:8080/mask/batches/${batchId}`)
-        .then((response) => {
-
-            // 상세조회 결과 확인
-            console.log(response.data);
-
-            // 조회한 LOT 하나 저장
-            setSelectedBatch(response.data);
-
-        })
-        .catch((error) => {
-            console.log("LOT 상세조회 실패", error);
-        });
-
-    };
+        };
 
     // 원료 칭량이력 전체조회
     useEffect(() => {
@@ -114,56 +151,12 @@ export default function Production(){
             )
         ];
 
-    // 생산 상태에 따른 LOT 필터링
-    const filteredBatches = batches.filter((batch) => {
-
-        // 1. 생산 상태 조건 확인
-        const statusMatch =
-            searchStatus === "all" ||
-            batch.status === searchStatus;
-
-        // 2. LOT의 생산 시작일만 가져오기
-        // 예: "2023-01-05T08:30:00"
-        //      ↓
-        //     "2023-01-05"
-        const batchDate = batch.startTime
-            ? batch.startTime.split("T")[0]
-            : "";
-
-
-        // 3. 시작일 조건 확인
-        // 시작일을 입력하지 않았다면 모든 날짜 허용
-        const startDateMatch =
-            searchStartDate === "" ||
-            batchDate >= searchStartDate;
-
-
-        // 4. 종료일 조건 확인
-        // 종료일을 입력하지 않았다면 모든 날짜 허용
-        const endDateMatch =
-            searchEndDate === "" ||
-            batchDate <= searchEndDate;
-        
-        // 5. 제품 조건 확인
-        const productMatch =
-            searchProduct === "all" ||
-            batch.productName === searchProduct;
-
-    // 상태 + 시작일 + 종료일을 모두 만족하는 LOT만 출력
-        return (
-                statusMatch &&
-                startDateMatch &&
-                endDateMatch &&
-                productMatch
-            );
-        });
-
     // 검색 조건에 맞는 원료 칭량이력 필터링
         const filteredMaterials = materials.filter((material) => {
 
         // 검색조건에 의해 남은 LOT 중
         // 현재 원료 데이터의 batchId와 같은 LOT가 있는지 확인
-        return filteredBatches.some(
+        return batches.some(
             (batch) => batch.batchId === material.batchId
         );
 
@@ -222,13 +215,13 @@ export default function Production(){
                     <option value="all">전체 제품</option>
 
                     {/* DB에서 받아온 실제 제품 목록 출력 */}
-                    {productList.map((productName) => (
-                        <option
-                            key={productName}
-                            value={productName}
-                        >
-                            {productName}
-                        </option>
+                    {productList.map((product) => (
+                    <option
+                        key={product.productCode}
+                        value={product.productCode}
+                    >
+                        {product.productName}
+                    </option>
                     ))}
                 </select>
 
@@ -317,7 +310,7 @@ export default function Production(){
                                     <tr key={batch.batchId}>
 
                                         {/* 순번 */}
-                                        <td>{index + 1}</td>
+                                        <td>{currentPage * pageSize + index + 1}</td>
 
                                         {/* LOT 번호 */}
                                         <td>{batch.batchId}</td>
@@ -369,9 +362,45 @@ export default function Production(){
 
                                 </tbody>
                             </table>
+                            <div className="production-pagination">
+
+                            <button
+                                disabled={currentPage === 0}
+                                onClick={() => fetchBatches(currentPage - 1)}
+                            >
+                                이전
+                            </button>
+
+                            {Array.from(
+                                { length: totalPages },
+                                (_, index) => (
+                                    <button
+                                        key={index}
+                                        className={
+                                            currentPage === index
+                                                ? "active"
+                                                : ""
+                                        }
+                                        onClick={() => fetchBatches(index)}
+                                    >
+                                        {index + 1}
+                                    </button>
+                                )
+                            )}
+
+                            <button
+                                disabled={
+                                    totalPages === 0 ||
+                                    currentPage === totalPages - 1
+                                }
+                                onClick={() => fetchBatches(currentPage + 1)}
+                            >
+                                다음
+                            </button>
+
+                        </div>
                         </div>
                     )}
-
 
                 {/* =====================
                     4-2. 원료 칭량이력
