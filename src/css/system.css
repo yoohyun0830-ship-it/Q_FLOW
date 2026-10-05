@@ -6,11 +6,25 @@
   box-sizing: border-box;
 }
 
-/* 상단 2열 그리드 레이아웃 */
+/* 상단 반응형 그리드 레이아웃 (창이 좁아지면 1열로 세로 정렬) */
 .system-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 360px 1fr;
   gap: 20px;
+}
+
+.anomaly-config-card .form-label {
+  width: 85px;
+  min-width: 85px;
+}
+
+.anomaly-config-card .num-input {
+  width: 75px; /* 숫자 입력칸 폭을 살짝 줄여 깔끔하게 배치 */
+}
+
+.anomaly-config-card .form-label {
+    width: 100px;
+    min-width: 100px;
 }
 
 .mt-16 {
@@ -21,9 +35,10 @@
 .system-card {
   background: #ffffff;
   border-radius: 10px;
-  border: 1fr solid #e2e8f0;
+  border: 1px solid #e2e8f0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  min-width: 0; /* flex/grid 내부 자식 요소 넘침 방지 */
 }
 
 .card-header {
@@ -41,6 +56,7 @@
 
 .card-body {
   padding: 20px;
+  overflow-x: auto; /* 창이 좁을 때 깔끔한 가로 스크롤 생성 */
 }
 
 /* 폼 레이아웃 */
@@ -52,9 +68,11 @@
 
 .form-label {
   width: 100px;
+  min-width: 100px; /* 라벨 폭 고정 */
   font-size: 14px;
   font-weight: 600;
   color: #334155;
+  white-space: nowrap; /* 글자 세로 줄바꿈 방지 */
 }
 
 .form-input-group {
@@ -62,25 +80,42 @@
   align-items: center;
   gap: 8px;
   flex: 1;
+  flex-wrap: wrap; /* 폭 부족 시 입력창이 자연스럽게 줄바꿈 */
 }
 
 .form-input-group.dual {
-  gap: 12px;
+  gap: 8px;
+}
+
+.form-input-group.column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px; /* 최소값 줄과 최대값 줄 사이의 간격 */
+}
+
+/* 최소값, 최대값 각각의 1줄 스타일 */
+.sub-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sub-label {
+  width: 42px;
+  min-width: 42px;
   font-size: 12px;
   color: #64748b;
-  margin-right: 2px;
+  white-space: nowrap;
 }
 
 .form-select,
 .form-input {
   height: 38px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   color: #1e293b;
   outline: none;
   transition: border-color 0.2s;
@@ -88,6 +123,7 @@
 
 .form-select {
   flex: 1;
+  min-width: 130px;
   background-color: #ffffff;
 }
 
@@ -97,33 +133,89 @@
 }
 
 .num-input {
-  width: 90px;
+  width: 85px;
 }
 
-.text-input {
-  flex: 1;
-}
-
-/* 하단 버튼 및 토글 행 */
-.footer-row {
-  justify-content: space-between;
-  margin-top: 24px;
+/* 하단 저장 버튼 영역 */
+.footer-row.end-align {
+  justify-content: flex-end;
+  margin-top: 20px;
   margin-bottom: 0;
 }
 
-.toggle-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.save-btn {
+  height: 40px;
+  padding: 0 24px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-.toggle-text {
+.save-btn:hover {
+  background-color: #1d4ed8;
+}
+
+/* 테이블 레이아웃 및 텍스트 깨짐 방지 */
+.system-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
   font-size: 13px;
-  color: #475569;
-  font-weight: 500;
+  white-space: nowrap; /* 💡 테이블 내부 모든 데이터의 세로 줄바꿈 완전 차단 */
 }
 
-/* 스위치 스타일 */
+.system-table th {
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.system-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.history-row {
+  background-color: #fafafa;
+  color: #94a3b8;
+}
+
+.empty-cell {
+  text-align: center;
+  color: #94a3b8;
+  padding: 24px !important;
+}
+
+/* 상태 뱃지 */
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.inactive {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+/* 토글 스위치 스타일 */
 .switch {
   position: relative;
   display: inline-block;
@@ -172,88 +264,9 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 
-/* 저장 버튼 */
-.save-btn {
-  height: 40px;
-  padding: 0 24px;
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.save-btn:hover {
-  background-color: #1d4ed8;
-}
-
-/* 테이블 스타일 */
-.system-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 13px;
-}
-
-.system-table th {
-  background-color: #f1f5f9;
-  color: #475569;
-  padding: 10px 12px;
-  font-weight: 600;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.system-table td {
-  padding: 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-}
-
-.history-row {
-  background-color: #fafafa;
-  color: #94a3b8;
-}
-
-.empty-cell {
-  text-align: center;
-  color: #94a3b8;
-  padding: 24px !important;
-}
-
-/* 상태 뱃지 */
-.status-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-badge.normal,
-.status-badge.active {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.status-badge.inactive {
-  background-color: #f1f5f9;
-  color: #64748b;
-}
-
-/* 테이블 액션 버튼 */
-.toggle-action-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggle-action-btn:hover {
-  background-color: #e2e8f0;
+/* 반응형 미디어 쿼리 (태블릿/모바일 화면 폭에 대응) */
+@media (max-width: 1024px) {
+  .system-grid {
+    grid-template-columns: 1fr;
+  }
 }
