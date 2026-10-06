@@ -592,8 +592,11 @@ export default function Anomaly() {
                         />
 
                         <datalist id="ae-process-options">
-                            <option value="OP_S02_HOMO_DISPERSE" />
-                            <option value="PACKAGING" />
+                            <option value="원료 칭량" />
+                            <option value="가열/혼합" />
+                            <option value="냉각" />
+                            <option value="벌크 검사" />
+                            <option value="최종 포장 검사" />
                         </datalist>
                     </label>
 
@@ -609,11 +612,11 @@ export default function Anomaly() {
                         />
 
                         <datalist id="ae-type-options">
-                            <option value="WARN_TORQUE_HIGH" />
-                            <option value="ERR_METAL_DETECTED" />
                             <option value="모터 토크 과다" />
                             <option value="모터 토크 정상 복귀" />
                             <option value="금속 이물 검출" />
+                            <option value="탱크 온도 과열" />
+                            <option value="pH 범위 이탈" />
                         </datalist>
                     </label>
 

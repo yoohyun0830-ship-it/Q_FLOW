@@ -6,29 +6,76 @@ const API_BASE_URL = "http://localhost:8080/mask/anomaly-rules";
 
 // 공정별 종속 검사항목 매핑 데이터
 const SENSOR_MAP = {
-  OP_S01_SOLUBILIZE: [
-    { value: "raw_material_weight", label: "원료 칭량 (raw_material_weight)" },
-    { value: "ph_level", label: "pH 농도 (ph_level)" },
-  ],
-  OP_S02_HEATING_MIX: [
-    { value: "tank_temp_c", label: "탱크 온도 (tank_temp_c)" },
-    { value: "paddle_rpm", label: "교반 속도 (paddle_rpm)" },
-    { value: "heating_pressure", label: "가열 압력 (heating_pressure)" },
-  ],
-  OP_S03_COOLING_FINISH: [
-    { value: "cooling_temp_c", label: "냉각 온도 (cooling_temp_c)" },
-    { value: "bulk_viscosity_cps", label: "점도 (bulk_viscosity_cps)" },
-  ],
-  BULK_QC: [
-    { value: "qc_ph_level", label: "QC pH (qc_ph_level)" },
-    { value: "qc_viscosity", label: "QC 점도 (qc_viscosity)" },
-    { value: "microbe_test_status", label: "미생물 검사 (microbe_test_status)" },
-  ],
-  LINE_PKG_02: [
-    { value: "filling_volume_ml", label: "충진량 (filling_volume_ml)" },
-    { value: "sealing_temp_c", label: "실링 온도 (sealing_temp_c)" },
-    { value: "metal_detector_status", label: "금속 검출기 (metal_detector_status)" },
-  ]
+  "원료 칭량": [
+        {
+            value: "원료 칭량",
+            label: "원료 칭량"
+        },
+        {
+            value: "pH",
+            label: "pH"
+        }
+    ],
+
+    "가열/혼합": [
+        {
+            value: "탱크 온도(℃)",
+            label: "탱크 온도(℃)"
+        },
+        {
+            value: "교반 속도(RPM)",
+            label: "교반 속도(RPM)"
+        },
+        {
+            value: "모터 토크(%)",
+            label: "모터 토크(%)"
+        },
+        {
+            value: "가열 압력",
+            label: "가열 압력"
+        }
+    ],
+
+    "냉각": [
+        {
+            value: "냉각 온도(℃)",
+            label: "냉각 온도(℃)"
+        },
+        {
+            value: "점도(cP)",
+            label: "점도(cP)"
+        }
+    ],
+
+    "벌크 검사": [
+        {
+            value: "pH",
+            label: "pH"
+        },
+        {
+            value: "점도(cP)",
+            label: "점도(cP)"
+        },
+        {
+            value: "미생물 검사",
+            label: "미생물 검사"
+        }
+    ],
+
+    "최종 포장 검사": [
+        {
+            value: "충진량(mL)",
+            label: "충진량(mL)"
+        },
+        {
+            value: "실링 온도(℃)",
+            label: "실링 온도(℃)"
+        },
+        {
+            value: "금속검출 결과",
+            label: "금속검출 결과"
+        }
+    ]
 };
 
 export default function SystemPage() {
@@ -38,15 +85,17 @@ export default function SystemPage() {
 
   // 입력 폼 상태
   const [formData, setFormData] = useState({
-    processCode: "OP_S02_HEATING_MIX",
-    sensorName: "tank_temp_c",
+    processCode: "가열/혼합",
+    sensorName: "탱크 온도(℃)",
+
     warningMin: "75.0",
     warningMax: "80.0",
     criticalMin: "80.0",
     criticalMax: "95.0",
+
     durationSeconds: 30,
-    conditionType: "RANGE",
-    isActive: true,
+    conditionType: "범위",
+    isActive: true
   });
 
   useEffect(() => {
@@ -138,11 +187,11 @@ export default function SystemPage() {
                   onChange={handleProcessChange}
                   className="form-select"
                 >
-                  <option value="OP_S01_SOLUBILIZE">① 원료 칭량</option>
-                  <option value="OP_S02_HEATING_MIX">② 가열·혼합</option>
-                  <option value="OP_S03_COOLING_FINISH">③ 냉각·마무리</option>
-                  <option value="BULK_QC">④ 벌크 QC</option>
-                  <option value="LINE_PKG_02">⑤ 충진·포장</option>
+                  <option value="원료 칭량">① 원료 칭량</option>
+                  <option value="가열/혼합">② 가열/혼합</option>
+                  <option value="냉각">③ 냉각</option>
+                  <option value="벌크 검사">④ 벌크 검사</option>
+                  <option value="최종 포장 검사">⑤ 최종 포장 검사</option>
                 </select>
 
                 <select
