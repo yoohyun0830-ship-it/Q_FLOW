@@ -26,34 +26,27 @@ function dateText(value) {
 
 // 심각도 표시
 function severityText(value) {
-    if (value === "ALM_SEV_NORMAL") return "정상";
-    if (value === "ALM_SEV_WARN") return "주의";
-    if (value === "ALM_SEV_CRIT") return "심각";
-
     return display(value);
 }
 
 // 조치상태 표시
 function statusText(value) {
-    if (value === "ACKNOWLEDGED") return "확인됨";
-    if (value === "UNACKNOWLEDGED") return "미확인";
-
     return value || "상태 미지정";
 }
 
 // 심각도 색상
 function severityClass(value) {
-    if (value === "ALM_SEV_NORMAL") return "ae-badge ae-success";
-    if (value === "ALM_SEV_WARN") return "ae-badge ae-warning";
-    if (value === "ALM_SEV_CRIT") return "ae-badge ae-danger";
+    if (value === "정상") return "ae-badge ae-success";
+    if (value === "주의") return "ae-badge ae-warning";
+    if (value === "심각") return "ae-badge ae-danger";
 
     return "ae-badge";
 }
 
 // 조치상태 색상
 function statusClass(value) {
-    if (value === "ACKNOWLEDGED") return "ae-badge ae-success";
-    if (value === "UNACKNOWLEDGED") return "ae-badge ae-danger";
+    if (value === "확인됨") return "ae-badge ae-success";
+    if (value === "미확인") return "ae-badge ae-danger";
 
     return "ae-badge";
 }
@@ -555,9 +548,9 @@ export default function Anomaly() {
                             onChange={handleChange}
                         >
                             <option value="">전체</option>
-                            <option value="ALM_SEV_NORMAL">정상</option>
-                            <option value="ALM_SEV_WARN">주의</option>
-                            <option value="ALM_SEV_CRIT">심각</option>
+                            <option value="정상">정상</option>
+                            <option value="주의">주의</option>
+                            <option value="심각">심각</option>
                         </select>
                     </label>
 
@@ -569,8 +562,8 @@ export default function Anomaly() {
                             onChange={handleChange}
                         >
                             <option value="">전체</option>
-                            <option value="ACKNOWLEDGED">확인됨</option>
-                            <option value="UNACKNOWLEDGED">미확인</option>
+                            <option value="확인됨">확인됨</option>
+                            <option value="미확인">미확인</option>
                         </select>
                     </label>
 

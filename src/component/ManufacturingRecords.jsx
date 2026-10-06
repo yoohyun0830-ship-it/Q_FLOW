@@ -16,6 +16,71 @@ import {
     requestError
 } from "../api/manufacturingApi.js";
 
+function renderRecordValue(key, value) {
+    // 상태나 검사결과 항목만 색상 적용
+    const statusFields = [
+        "status",
+        "severity",
+        "actionStatus",
+        "overall_qc_result",
+        "appearance_code",
+        "microbubble_code",
+        "final_disposition",
+        "checkweigher_status",
+        "metal_detector_status",
+        "vision_inspection_status"
+    ];
+
+    if (!statusFields.includes(key)) {
+        return showValue(key, value);
+    }
+
+    const text = String(value ?? "").trim();
+
+    let background = "#f1f5f9";
+    let color = "#64748b";
+
+    if ([
+        "합격", "적합", "정상", "완료",
+        "칭량 확인 완료", "확인됨",
+        "적합 - 미세기포 없음"
+    ].includes(text)) {
+        background = "#dcfce7";
+        color = "#166534";
+    } else if (["주의", "대기", "판정 대기"].includes(text)) {
+        background = "#fef9c3";
+        color = "#854d0e";
+    } else if ([
+        "불합격", "심각", "중단", "미확인",
+        "중량 초과", "중량 미달",
+        "금속 이물 검출", "금속검사 불합격",
+        "인쇄 불량", "실링 불량"
+    ].includes(text)) {
+        background = "#fee2e2";
+        color = "#b91c1c";
+    } else if (text === "진행중") {
+        background = "#dbeafe";
+        color = "#1d4ed8";
+    }
+
+    return (
+        <span
+            style={{
+                display: "inline-block",
+                padding: "5px 10px",
+                borderRadius: "16px",
+                background,
+                color,
+                fontSize: "12px",
+                fontWeight: 600,
+                whiteSpace: "nowrap"
+            }}
+        >
+            {text || "-"}
+        </span>
+    );
+}
+
 // 검색조건 초기값
 function createEmptyFilters() {
     return {
@@ -856,7 +921,7 @@ function RecordsContent({ type, batchId }) {
                                             >
                                                 {config.columns.map(([key]) => (
                                                     <td key={key}>
-                                                        {showValue(key, row[key])}
+                                                        {renderRecordValue(key, row[key])}
                                                     </td>
                                                 ))}
 
@@ -972,7 +1037,7 @@ function RecordsContent({ type, batchId }) {
                                         <div key={key}>
                                             <dt>{label}</dt>
                                             <dd>
-                                                {showValue(key, detail[key])}
+                                                {renderRecordValue(key, detail[key])}
                                             </dd>
                                         </div>
                                     ))}
