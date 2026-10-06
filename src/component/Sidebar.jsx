@@ -12,57 +12,57 @@ import {
 
 import "../css/sidebar.css";
 
-export default function Sidebar() {
-
+// 💡 부모로부터 isCollapsed 상태 수신
+export default function Sidebar({ isCollapsed }) {
     const { pathname } = useLocation();
     const isAnomalyMenu = pathname === "/anomaly" || pathname.startsWith("/anomaly/");
-    const isDataMenu =  pathname === "/data" || pathname.startsWith("/data/");
+    const isDataMenu = pathname === "/data" || pathname.startsWith("/data/");
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
 
             {/* 로고 */}
             <div className="sidebar-logo">
                 <h1>Q-FLOW</h1>
-                <p>Sheet Mask Smart Factory</p>
+                {!isCollapsed && <p>Sheet Mask Smart Factory</p>}
             </div>
 
             {/* 메뉴 */}
             <nav className="sidebar-menu">
 
-                <NavLink to="/dashboard">
+                <NavLink to="/dashboard" title="대시보드">
                     <House className="menu-icon" />
-                    <span>대시보드</span>
+                    {!isCollapsed && <span>대시보드</span>}
                 </NavLink>
 
-                <NavLink to="/process">
+                <NavLink to="/process" title="공정 모니터링">
                     <Activity className="menu-icon" />
-                    <span>공정 모니터링</span>
+                    {!isCollapsed && <span>공정 모니터링</span>}
                 </NavLink>
 
-                <NavLink to="/production">
+                <NavLink to="/production" title="생산 관리">
                     <Settings className="menu-icon" />
-                    <span>생산 관리</span>
+                    {!isCollapsed && <span>생산 관리</span>}
                 </NavLink>
 
-                <NavLink to="/quality">
+                <NavLink to="/quality" title="품질 관리">
                     <ShieldCheck className="menu-icon" />
-                    <span>품질 관리</span>
+                    {!isCollapsed && <span>품질 관리</span>}
                 </NavLink>
 
                 {/* 이벤트 / 알림 */}
                 <div className="alarm-menu-group">
-                    {/* 큰 메뉴 클릭 → 알람 메인 화면 */}
-                    <NavLink to="/anomaly" end>
+                    <NavLink to="/anomaly" end title="이벤트 / 알람">
                         <Bell className="menu-icon" />
-                        <span>이벤트 / 알람</span>
-                        <span className="alarm-menu-arrow">
-                            {isAnomalyMenu ? "▾" : "▸"}
-                        </span>
+                        {!isCollapsed && <span>이벤트 / 알람</span>}
+                        {!isCollapsed && (
+                            <span className="alarm-menu-arrow">
+                                {isAnomalyMenu ? "▾" : "▸"}
+                            </span>
+                        )}
                     </NavLink>
 
-                    {/* 알람 메뉴에 들어오면 하위 메뉴 표시 */}
-                    {isAnomalyMenu && (
+                    {!isCollapsed && isAnomalyMenu && (
                         <div className="alarm-submenu">
                             <NavLink to="/anomaly/actions">
                                 조치 내역
@@ -73,16 +73,17 @@ export default function Sidebar() {
 
                 {/* 제조데이터 관리 */}
                 <div className="alarm-menu-group">
-                    <NavLink to="/data" end>
+                    <NavLink to="/data" end title="제조데이터 관리">
                         <Database className="menu-icon" />
-                        <span>제조데이터 관리</span>
-
-                        <span className="alarm-menu-arrow">
-                            {isDataMenu ? "▾" : "▸"}
-                        </span>
+                        {!isCollapsed && <span>제조데이터 관리</span>}
+                        {!isCollapsed && (
+                            <span className="alarm-menu-arrow">
+                                {isDataMenu ? "▾" : "▸"}
+                            </span>
+                        )}
                     </NavLink>
 
-                    {isDataMenu && (
+                    {!isCollapsed && isDataMenu && (
                         <div className="alarm-submenu">
                             <NavLink to="/data/lots">
                                 LOT별 이력 조회
@@ -95,18 +96,17 @@ export default function Sidebar() {
                     )}
                 </div>
 
-                <NavLink to="/report">
+                <NavLink to="/report" title="분석 및 리포트">
                     <BarChart3 className="menu-icon" />
-                    <span>분석 및 리포트</span>
+                    {!isCollapsed && <span>분석 및 리포트</span>}
                 </NavLink>
 
-                <NavLink to="/system">
+                <NavLink to="/system" title="시스템 관리">
                     <Cog className="menu-icon" />
-                    <span>시스템 관리</span>
+                    {!isCollapsed && <span>시스템 관리</span>}
                 </NavLink>
 
             </nav>
-
 
         </aside>
     );

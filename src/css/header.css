@@ -1,0 +1,55 @@
+/* =========================
+   상단 헤더 (Slim Header)
+========================= */
+
+.main-header {
+  height: 48px; /* 헤더 높이 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* 좌측 영역 (토글 버튼 + 타이틀) */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 헤더 타이틀 텍스트 */
+.header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* 햄버거(≡) 메뉴 토글 버튼 */
+.menu-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  color: #475569;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.menu-toggle-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* 우측 관리자 정보 */
+.header-user {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
