@@ -4,7 +4,7 @@ import "../css/system.css";
 
 const API_BASE_URL = "http://localhost:8080/mask/anomaly-rules";
 
-// 💡 공정별 종속 검사항목 매핑 데이터
+// 공정별 종속 검사항목 매핑 데이터
 const SENSOR_MAP = {
   OP_S01_SOLUBILIZE: [
     { value: "raw_material_weight", label: "원료 칭량 (raw_material_weight)" },
@@ -28,7 +28,7 @@ const SENSOR_MAP = {
     { value: "filling_volume_ml", label: "충진량 (filling_volume_ml)" },
     { value: "sealing_temp_c", label: "실링 온도 (sealing_temp_c)" },
     { value: "metal_detector_status", label: "금속 검출기 (metal_detector_status)" },
-  ],
+  ]
 };
 
 export default function SystemPage() {
@@ -36,7 +36,7 @@ export default function SystemPage() {
   const [activeRules, setActiveRules] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 1. 입력 폼 상태
+  // 입력 폼 상태
   const [formData, setFormData] = useState({
     processCode: "OP_S02_HEATING_MIX",
     sensorName: "tank_temp_c",
@@ -69,7 +69,7 @@ export default function SystemPage() {
     }
   };
 
-  // 💡 공정(processCode) 변경 시 해당 공정의 첫 번째 검사항목으로 센서명 자동 동기화
+  // 공정(processCode) 변경 시 해당 공정의 첫 번째 검사항목으로 자동 변경
   const handleProcessChange = (e) => {
     const selectedProcess = e.target.value;
     const availableSensors = SENSOR_MAP[selectedProcess] || [];
@@ -104,16 +104,20 @@ export default function SystemPage() {
     }
   };
 
-  // 💡 사용여부 토글 스위치 (하단 테이블에서 원터치 실행)
+  // 하단 이력 테이블에서 사용하는 원터치 상태 토글 스위치 (true <-> false)
   const handleToggleStatus = async (ruleId) => {
     try {
-      await axios.put(`${API_BASE_URL}/${ruleId}/toggle`);
+      await axios.put(`http://localhost:8080/mask/anomaly-rules/${ruleId}/change`);
       fetchAllData();
-    } catch (error) {
-      console.error("상태 토글 중 오류 발생:", error);
-      alert("상태 변경에 실패했습니다. (CORS 또는 백엔드 라우팅 상태를 확인하세요)");
-    }
-  };
+  } catch (error) {
+    // 백엔드의 "작업자의 동의 필요" 예외 메시지 출력
+    const errorMessage = error.response?.data?.message || error.response?.data || "작업자의 동의 필요";
+    alert(errorMessage);
+    
+    // 실패 시에도 스위치 UI를 원래대로 복원하기 위해 목록 다시 불러오기
+    fetchAllData();
+  }
+};
 
   return (
     <div className="system-page">
@@ -124,7 +128,7 @@ export default function SystemPage() {
             <h3>이상 판정 기준 설정</h3>
           </div>
           <form className="card-body" onSubmit={handleSubmit}>
-            {/* 공정 선택 & 종속 검사 항목 동적 렌더링 */}
+            {/* 공정 및 종속 검사 항목 선택 */}
             <div className="form-row">
               <label className="form-label">공정 / 항목</label>
               <div className="form-input-group dual">
@@ -141,7 +145,6 @@ export default function SystemPage() {
                   <option value="LINE_PKG_02">⑤ 충진·포장</option>
                 </select>
 
-                {/* 선택된 공정에 종속된 검사항목만 표시 */}
                 <select
                   name="sensorName"
                   value={formData.sensorName}
@@ -160,54 +163,66 @@ export default function SystemPage() {
             {/* 주의 기준값 (Warning Min / Max) */}
             <div className="form-row">
               <label className="form-label">주의 기준값</label>
-              <div className="form-input-group">
-                <span className="sub-label">최소값</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="warningMin"
-                  value={formData.warningMin}
-                  onChange={handleChange}
-                  className="form-input num-input"
-                  required
-                />
-                <span className="sub-label">최대값</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="warningMax"
-                  value={formData.warningMax}
-                  onChange={handleChange}
-                  className="form-input num-input"
-                  required
-                />
+              <div className="form-input-group column">
+                {/* 1번째 줄: 최소값 */}
+                <div className="sub-input-row">
+                  <span className="sub-label">최소값</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="warningMin"
+                    value={formData.warningMin}
+                    onChange={handleChange}
+                    className="form-input num-input"
+                    required
+                  />
+                </div>
+                {/* 2번째 줄: 최대값 */}
+                <div className="sub-input-row">
+                  <span className="sub-label">최대값</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="warningMax"
+                    value={formData.warningMax}
+                    onChange={handleChange}
+                    className="form-input num-input"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
             {/* 이상 기준값 (Critical Min / Max) */}
             <div className="form-row">
               <label className="form-label">이상 기준값</label>
-              <div className="form-input-group">
-                <span className="sub-label">최소값</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="criticalMin"
-                  value={formData.criticalMin}
-                  onChange={handleChange}
-                  className="form-input num-input"
-                  required
-                />
-                <span className="sub-label">최대값</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="criticalMax"
-                  value={formData.criticalMax}
-                  onChange={handleChange}
-                  className="form-input num-input"
-                  required
-                />
+              <div className="form-input-group column">
+                {/* 1번째 줄: 최소값 */}
+                <div className="sub-input-row">
+                  <span className="sub-label">최소값</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="criticalMin"
+                    value={formData.criticalMin}
+                    onChange={handleChange}
+                    className="form-input num-input"
+                    required
+                  />
+                </div>
+                {/* 2번째 줄: 최대값 */}
+                <div className="sub-input-row">
+                  <span className="sub-label">최대값</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="criticalMax"
+                    value={formData.criticalMax}
+                    onChange={handleChange}
+                    className="form-input num-input"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -226,7 +241,7 @@ export default function SystemPage() {
               </div>
             </div>
 
-            {/* 하단 저장 버튼 */}
+            {/* 저장 버튼 */}
             <div className="form-row footer-row end-align">
               <button type="submit" className="save-btn">
                 개정판 저장
@@ -283,7 +298,7 @@ export default function SystemPage() {
         </div>
       </div>
 
-      {/* 3. 하단: 공정별 이상 감지 규칙 전체 이력 (사용여부 토글 스위치 제공) */}
+      {/* 3. 하단: 공정별 이상 감지 규칙 전체 이력 (토글 스위치 제공) */}
       <div className="system-card mt-16">
         <div className="card-header simple">
           <h3>공정별 이상 감지 규칙 전체 이력</h3>

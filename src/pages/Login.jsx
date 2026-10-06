@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-
+import "../css/login.css";
 export default function Login(){
 
     const navigate = useNavigate();
@@ -10,7 +10,7 @@ export default function Login(){
     };
 
     return(
-        <div>
+        <div className="login_box">
             <h1>Q-FLOW</h1>
             <p>실시간 제조공정 모니터링 및 품질관리 시스템</p>
 

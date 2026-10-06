@@ -1,22 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
-// 품질관리 css 연결
+import {
+    loadBulkPage,
+    loadFillingPage
+} from "../api/manufacturingApi.js";
+
 import "../css/quality.css";
 
 const BASE_URL = "http://localhost:8080";
 const PAGE_SIZE = 20;
 
-// 탭마다 사용하는 API, 필드, 결과 코드
+// 탭별 API와 표시 항목
 const TYPES = {
     bulk: {
         title: "벌크 품질검사",
         path: "/mask/bulk-qc",
         id: "qc_id",
-        date: "sample_time",
         result: "overall_qc_result",
-        pass: "QC_RESULT_PASS",
-        fail: "QC_RESULT_FAIL",
+        pass: "합격",
+        fail: "불합격",
 
         columns: [
             ["qc_id", "검사번호"],
@@ -57,10 +60,9 @@ const TYPES = {
         title: "완제품 품질검사",
         path: "/mask/filling-packagings",
         id: "pouch_id",
-        date: "timestamp",
         result: "final_disposition",
-        pass: "DISP_ACCEPTED",
-        fail: "DISP_REJECTED",
+        pass: "합격",
+        fail: "불합격",
 
         columns: [
             ["pouch_id", "제품번호"],
@@ -105,7 +107,23 @@ const TYPES = {
     }
 };
 
-// 화면에 표시할 값
+// 검색조건 초기값
+function createEmptyFilters() {
+    return {
+        startDate: "",
+        endDate: "",
+        batchId: "",
+        result: "",
+        userId: "",
+
+        packagingLine: "",
+        checkweigherStatus: "",
+        metalDetectorStatus: "",
+        visionInspectionStatus: ""
+    };
+}
+
+// 기본 화면 표시
 function showValue(key, value) {
     if (value === null || value === undefined || value === "") {
         return "-";
@@ -118,16 +136,45 @@ function showValue(key, value) {
         return String(value).replace("T", " ").slice(0, 19);
     }
 
-    if (value === "APP_PASS_PALEBLUE") return "적합";
-    if (value === "BUBBLE_PASS_ZERO") return "없음";
+    // 기존 코드값이 남아 있는 경우의 표시
+    if (key === "appearance_code" && value === "APP_PASS_PALEBLUE") {
+        return "적합";
+    }
+
+    if (key === "microbubble_code" && value === "BUBBLE_PASS_ZERO") {
+        return "없음";
+    }
 
     return String(value);
+}
+
+// 외관검사의 적합을 초록색으로 표시
+function renderQualityValue(key, value) {
+    if (key === "appearance_code") {
+        const text = showValue(key, value).trim();
+
+        let state = "other"; // 미입력·알 수 없는 값은 회색
+
+        if (text === "적합") {
+            state = "pass"; // 초록
+        } else if (text === "부적합" || text === "불합격") {
+            state = "fail"; // 빨강
+        }
+
+        return (
+            <span className={`quality-badge ${state}`}>
+                {text || "-"}
+            </span>
+        );
+    }
+
+    return showValue(key, value);
 }
 
 // 오류 메시지
 function errorText(error) {
     if (error.response?.status === 400) {
-        return "검색조건을 확인해 주세요.";
+        return "검색조건과 페이지 번호를 확인해 주세요.";
     }
 
     if (error.response?.status === 404) {
@@ -145,22 +192,19 @@ function errorText(error) {
     return error.message || "조회 중 오류가 발생했습니다.";
 }
 
-// 합격·불합격 배지
+// 종합 검사결과·최종 판정 색상
 function ResultBadge({ value, config }) {
-    const state =
-        value === config.pass
-            ? "pass"
-            : value === config.fail
-              ? "fail"
-              : "other";
+    const text = String(value ?? "").trim();
+
+    const state = text === config.pass
+        ? "pass"
+        : text === config.fail
+            ? "fail"
+            : "other";
 
     return (
         <span className={`quality-badge ${state}`}>
-            {state === "pass"
-                ? "합격"
-                : state === "fail"
-                  ? "불합격"
-                  : showValue("", value)}
+            {text || "-"}
         </span>
     );
 }
@@ -173,12 +217,11 @@ function QualityDetail({ config, id, onClose }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // 팝업 열기·닫기
     useEffect(() => {
         const dialog = dialogRef.current;
-        dialog.showModal();
-
         const previousOverflow = document.body.style.overflow;
+
+        dialog.showModal();
         document.body.style.overflow = "hidden";
 
         return () => {
@@ -187,7 +230,6 @@ function QualityDetail({ config, id, onClose }) {
         };
     }, []);
 
-    // 상세 API 요청
     useEffect(() => {
         const controller = new AbortController();
 
@@ -253,10 +295,7 @@ function QualityDetail({ config, id, onClose }) {
                 </button>
             </header>
 
-            <div
-                className="quality-dialog-body"
-                aria-busy={loading}
-            >
+            <div className="quality-dialog-body" aria-busy={loading}>
                 {loading ? (
                     <p className="quality-message" role="status">
                         상세정보를 조회하고 있습니다.
@@ -277,7 +316,7 @@ function QualityDetail({ config, id, onClose }) {
                                             config={config}
                                         />
                                     ) : (
-                                        showValue(key, detail[key])
+                                        renderQualityValue(key, detail[key])
                                     )}
                                 </dd>
                             </div>
@@ -302,93 +341,81 @@ function QualityDetail({ config, id, onClose }) {
 // 각 탭의 검색·목록
 function QualityRecords({ type }) {
     const config = TYPES[type];
+    const isBulk = type === "bulk";
 
-    const [draft, setDraft] = useState({
-        startDate: "",
-        endDate: "",
-        batchId: "",
-        result: "",
-        userId: ""
-    });
-
-    const [condition, setCondition] = useState({
-        startDate: "",
-        endDate: "",
-        batchId: "",
-        result: "",
-        userId: ""
-    });
+    const [draft, setDraft] = useState(createEmptyFilters);
+    const [condition, setCondition] = useState(createEmptyFilters);
 
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [inputError, setInputError] = useState("");
     const [reload, setReload] = useState(0);
+
     const [page, setPage] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
     const [selectedId, setSelectedId] = useState(null);
 
-    // 벌크: 서버 조건검색
-    // 완제품: 현재 API가 전체조회만 지원하므로 리액트에서 검색
-    const serverCondition = type === "bulk" ? condition : null;
-
+    // 전체조회 + 조건검색 + 서버 페이징
     useEffect(() => {
         const controller = new AbortController();
 
-        async function fetchList() {
+        async function fetchPage() {
             setLoading(true);
             setError("");
             setRows([]);
 
             try {
-                const params = serverCondition
-                    ? {
-                        startDate:
-                            serverCondition.startDate || undefined,
-                        endDate:
-                            serverCondition.endDate || undefined,
-                        batchId:
-                            serverCondition.batchId || undefined,
-                        overallQcResult:
-                            serverCondition.result || undefined,
-                        userId:
-                            serverCondition.userId === ""
-                                ? undefined
-                                : Number(serverCondition.userId)
-                    }
-                    : {};
+                let result;
 
-                const response = await axios.get(
-                    `${BASE_URL}${config.path}`,
-                    {
-                        signal: controller.signal,
-                        params
-                    }
-                );
-
-                if (controller.signal.aborted) return;
-
-                if (!Array.isArray(response.data)) {
-                    throw new Error(
-                        "목록 API가 배열을 반환하는지 확인해 주세요."
+                if (isBulk) {
+                    result = await loadBulkPage(
+                        {
+                            startDate: condition.startDate,
+                            endDate: condition.endDate,
+                            batchId: condition.batchId,
+                            overallQcResult: condition.result,
+                            userId: condition.userId
+                        },
+                        page,
+                        controller.signal
+                    );
+                } else {
+                    result = await loadFillingPage(
+                        {
+                            startDate: condition.startDate,
+                            endDate: condition.endDate,
+                            batchId: condition.batchId,
+                            finalDisposition: condition.result,
+                            packagingLine: condition.packagingLine,
+                            checkweigherStatus: condition.checkweigherStatus,
+                            metalDetectorStatus: condition.metalDetectorStatus,
+                            visionInspectionStatus: condition.visionInspectionStatus,
+                            userId: condition.userId
+                        },
+                        page,
+                        controller.signal
                     );
                 }
 
-                // 최신 검사순, 시간이 같으면 PK순
-                const sorted = [...response.data].sort((a, b) =>
-                    String(b[config.date] || "")
-                        .localeCompare(String(a[config.date] || "")) ||
-                    String(a[config.id]).localeCompare(
-                        String(b[config.id]),
-                        undefined,
-                        { numeric: true }
-                    )
-                );
+                if (controller.signal.aborted) return;
 
-                setRows(sorted);
-                setPage(0);
+                // 삭제 등으로 현재 페이지가 사라진 경우
+                if (page > 0 && page >= result.totalPages) {
+                    setPage(Math.max(0, result.totalPages - 1));
+                    return;
+                }
+
+                setRows(result.content);
+                setTotal(result.totalElements);
+                setTotalPages(result.totalPages);
             } catch (err) {
                 if (!controller.signal.aborted) {
                     setError(errorText(err));
+                    setTotal(0);
+                    setTotalPages(0);
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -397,10 +424,10 @@ function QualityRecords({ type }) {
             }
         }
 
-        fetchList();
+        fetchPage();
 
         return () => controller.abort();
-    }, [config, serverCondition, reload]);
+    }, [isBulk, condition, page, reload]);
 
     function changeDraft(event) {
         const { name, value } = event.target;
@@ -421,13 +448,11 @@ function QualityRecords({ type }) {
             draft.endDate &&
             draft.startDate > draft.endDate
         ) {
-            setInputError(
-                "시작일은 종료일보다 늦을 수 없습니다."
-            );
+            setInputError("시작일은 종료일보다 늦을 수 없습니다.");
             return;
         }
 
-        if (draft.userId !== "") {
+        if (draft.userId.trim() !== "") {
             const id = Number(draft.userId);
 
             if (
@@ -448,74 +473,57 @@ function QualityRecords({ type }) {
 
         setCondition({
             ...draft,
-            batchId: draft.batchId.trim()
+            batchId: draft.batchId.trim(),
+            userId: draft.userId.trim(),
+            packagingLine: draft.packagingLine.trim(),
+            checkweigherStatus: draft.checkweigherStatus.trim(),
+            metalDetectorStatus: draft.metalDetectorStatus.trim(),
+            visionInspectionStatus: draft.visionInspectionStatus.trim()
         });
     }
 
     function reset() {
-        const empty = {
-            startDate: "",
-            endDate: "",
-            batchId: "",
-            result: "",
-            userId: ""
-        };
-
-        setDraft({ ...empty });
-        setCondition({ ...empty });
+        setDraft(createEmptyFilters());
+        setCondition(createEmptyFilters());
         setInputError("");
         setSelectedId(null);
         setPage(0);
     }
 
-    // 완제품 조건검색
-    // 벌크는 서버에서 이미 검색한 결과를 그대로 사용
-    const filteredRows = type === "bulk"
-        ? rows
-        : rows.filter(row => {
-            const date = String(row.timestamp || "").slice(0, 10);
+    function refresh() {
+        setSelectedId(null);
+        setPage(0);
+        setReload(value => value + 1);
+    }
 
-            return (
-                (!condition.startDate ||
-                    (date && date >= condition.startDate)) &&
-                (!condition.endDate ||
-                    (date && date <= condition.endDate)) &&
-                (!condition.batchId ||
-                    row.batchId === condition.batchId) &&
-                (!condition.result ||
-                    row.final_disposition === condition.result) &&
-                (condition.userId === "" ||
-                    Number(row.userId) === Number(condition.userId))
-            );
-        });
+    function changePage(nextPage) {
+        if (
+            loading ||
+            nextPage < 0 ||
+            nextPage >= totalPages ||
+            nextPage === page
+        ) {
+            return;
+        }
 
-    // 요약 카드는 검색 결과 전체 기준
-    const total = filteredRows.length;
+        setSelectedId(null);
+        setPage(nextPage);
+    }
 
-    const pass = filteredRows.filter(
-        row => row[config.result] === config.pass
-    ).length;
+    const firstNumber = rows.length
+        ? page * PAGE_SIZE + 1
+        : 0;
 
-    const fail = filteredRows.filter(
-        row => row[config.result] === config.fail
-    ).length;
-
-    const other = total - pass - fail;
-
-    // 리액트에서만 20건씩 표시
-    const totalPages = Math.ceil(total / PAGE_SIZE);
-
-    const currentPage = Math.min(
-        page,
-        Math.max(0, totalPages - 1)
-    );
-
-    const visibleRows = filteredRows.slice(
-        currentPage * PAGE_SIZE,
-        (currentPage + 1) * PAGE_SIZE
-    );
+    const lastNumber = rows.length
+        ? page * PAGE_SIZE + rows.length
+        : 0;
 
     const unavailable = loading || Boolean(error);
+
+    // 전체 합격·불합격 집계는 기존처럼 미제공 상태로 표시
+    // 현재 페이지 건수를 전체 건수로 표시하지 않음
+    const pass = null;
+    const fail = null;
 
     return (
         <>
@@ -531,7 +539,9 @@ function QualityRecords({ type }) {
                     >
                         <span>{label}</span>
                         <strong>
-                            {unavailable ? "-" : count}
+                            {unavailable || count === null
+                                ? "-"
+                                : count.toLocaleString()}
                         </strong>
                     </div>
                 ))}
@@ -539,12 +549,9 @@ function QualityRecords({ type }) {
 
             <p className="quality-summary-note">
                 검색조건 기준
-                {!unavailable && other > 0
-                    ? ` · 기타·미판정 ${other}건 포함`
-                    : ""}
             </p>
 
-            {/* 검색조건: 항상 표시하는 두 줄 구성 */}
+            {/* 검색조건 */}
             <form
                 className="quality-card quality-search"
                 onSubmit={search}
@@ -558,6 +565,7 @@ function QualityRecords({ type }) {
                             type="date"
                             name="startDate"
                             value={draft.startDate}
+                            max={draft.endDate || undefined}
                             onChange={changeDraft}
                         />
                     </label>
@@ -568,6 +576,7 @@ function QualityRecords({ type }) {
                             type="date"
                             name="endDate"
                             value={draft.endDate}
+                            min={draft.startDate || undefined}
                             onChange={changeDraft}
                         />
                     </label>
@@ -585,7 +594,7 @@ function QualityRecords({ type }) {
 
                 <div className="quality-search-bottom">
                     <label>
-                        검사결과
+                        {isBulk ? "종합 검사결과" : "최종 판정"}
                         <select
                             name="result"
                             value={draft.result}
@@ -611,13 +620,67 @@ function QualityRecords({ type }) {
                         />
                     </label>
 
-                    <div className="quality-actions">
+                    {!isBulk && (
+                        <label>
+                            포장라인
+                            <input
+                                name="packagingLine"
+                                value={draft.packagingLine}
+                                onChange={changeDraft}
+                                placeholder="포장라인 정확히 입력"
+                            />
+                        </label>
+                    )}
+                </div>
+
+                {/* 완제품 검사 추가 조건 */}
+                {!isBulk && (
+                    <div className="quality-search-bottom">
+                        <label>
+                            중량검사 결과
+                            <input
+                                name="checkweigherStatus"
+                                value={draft.checkweigherStatus}
+                                onChange={changeDraft}
+                                placeholder="DB의 중량검사 결과 입력"
+                            />
+                        </label>
+
+                        <label>
+                            금속검사 결과
+                            <input
+                                name="metalDetectorStatus"
+                                value={draft.metalDetectorStatus}
+                                onChange={changeDraft}
+                                placeholder="DB의 금속검사 결과 입력"
+                            />
+                        </label>
+
+                        <label>
+                            비전검사 결과
+                            <input
+                                name="visionInspectionStatus"
+                                value={draft.visionInspectionStatus}
+                                onChange={changeDraft}
+                                placeholder="DB의 비전검사 결과 입력"
+                            />
+                        </label>
+                    </div>
+                )}
+
+                <div className="quality-search-bottom">
+                    <div
+                        className="quality-actions"
+                        style={{ gridColumn: "1 / -1" }}
+                    >
                         <button type="button" onClick={reset}>
                             초기화
                         </button>
+
                         <button
                             type="submit"
                             className="quality-primary"
+                            disabled={loading}
                         >
                             조회
                         </button>
@@ -637,18 +700,16 @@ function QualityRecords({ type }) {
                     <div>
                         <h2>{config.title} 목록</h2>
                         <span>
-                            {unavailable ? "-" : `검색 결과 ${total}건`}
+                            {unavailable
+                                ? "-"
+                                : `검색 결과 ${total.toLocaleString()}건`}
                         </span>
                     </div>
 
                     <button
                         type="button"
                         disabled={loading}
-                        onClick={() => {
-                            setSelectedId(null);
-                            setPage(0);
-                            setReload(value => value + 1);
-                        }}
+                        onClick={refresh}
                     >
                         새로고침
                     </button>
@@ -670,13 +731,15 @@ function QualityRecords({ type }) {
                                             <th key={key}>{label}</th>
                                         ))}
 
-                                        <th>검사결과</th>
+                                        <th>
+                                            {isBulk ? "검사결과" : "최종 판정"}
+                                        </th>
                                         <th>상세</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {loading || total === 0 ? (
+                                    {loading || rows.length === 0 ? (
                                         <tr>
                                             <td
                                                 colSpan={config.columns.length + 3}
@@ -688,16 +751,18 @@ function QualityRecords({ type }) {
                                             </td>
                                         </tr>
                                     ) : (
-                                        visibleRows.map((row, index) => (
+                                        rows.map((row, index) => (
                                             <tr key={row[config.id]}>
                                                 <td>
-                                                    {currentPage * PAGE_SIZE +
-                                                        index + 1}
+                                                    {page * PAGE_SIZE + index + 1}
                                                 </td>
 
                                                 {config.columns.map(([key]) => (
                                                     <td key={key}>
-                                                        {showValue(key, row[key])}
+                                                        {renderQualityValue(
+                                                            key,
+                                                            row[key]
+                                                        )}
                                                     </td>
                                                 ))}
 
@@ -730,45 +795,50 @@ function QualityRecords({ type }) {
                         {!loading && (
                             <div className="quality-pagination">
                                 <span>
-                                    총 {total}건 중{" "}
-                                    {total
-                                        ? currentPage * PAGE_SIZE + 1
-                                        : 0}
-                                    –
-                                    {Math.min(
-                                        (currentPage + 1) * PAGE_SIZE,
-                                        total
-                                    )}
-                                    건
+                                    총 {total.toLocaleString()}건 중{" "}
+                                    {firstNumber}–{lastNumber}건
+                                    {" · "}페이지당 20건
                                 </span>
 
                                 <div>
                                     <button
                                         type="button"
-                                        disabled={currentPage === 0}
-                                        onClick={() =>
-                                            setPage(currentPage - 1)
-                                        }
+                                        disabled={page === 0}
+                                        onClick={() => changePage(0)}
+                                    >
+                                        처음
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={page === 0}
+                                        onClick={() => changePage(page - 1)}
                                     >
                                         이전
                                     </button>
 
                                     <span>
-                                        {totalPages ? currentPage + 1 : 0}
+                                        {totalPages ? page + 1 : 0}
                                         {" / "}
                                         {totalPages}
                                     </span>
 
                                     <button
                                         type="button"
-                                        disabled={
-                                            currentPage + 1 >= totalPages
-                                        }
-                                        onClick={() =>
-                                            setPage(currentPage + 1)
-                                        }
+                                        disabled={page + 1 >= totalPages}
+                                        onClick={() => changePage(page + 1)}
                                     >
                                         다음
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={page + 1 >= totalPages}
+                                        onClick={() =>
+                                            changePage(totalPages - 1)
+                                        }
+                                    >
+                                        마지막
                                     </button>
                                 </div>
                             </div>
@@ -800,10 +870,7 @@ export default function Quality() {
                 <p>검사 기록을 검색하고 상세정보를 확인합니다.</p>
             </header>
 
-            <nav
-                className="quality-tabs"
-                aria-label="품질검사 종류"
-            >
+            <nav className="quality-tabs" aria-label="품질검사 종류">
                 <button
                     type="button"
                     className={tab === "bulk" ? "active" : ""}
@@ -823,7 +890,7 @@ export default function Quality() {
                 </button>
             </nav>
 
-            {/* 탭이 바뀌면 해당 탭의 검색·페이지 상태 초기화 */}
+            {/* 탭 변경 시 검색조건과 페이지 초기화 */}
             <QualityRecords key={tab} type={tab} />
         </div>
     );

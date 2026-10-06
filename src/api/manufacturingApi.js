@@ -8,11 +8,12 @@ const api = axios.create({
 export const dataTypes = {
     sensor: {
         title: "공정 센서 측정이력",
-        path: null,
+        path: "/mask/sensor-telemetries",
         id: "sensor_id",
         date: "timestamp",
         searchKey: "execution_id",
         searchLabel: "공정 실행번호",
+        serverPaging: true,
 
         columns: [
             ["sensor_id", "측정번호"],
@@ -45,6 +46,7 @@ export const dataTypes = {
         date: "dispensedAt",
         searchKey: "batchId",
         searchLabel: "LOT 번호",
+        serverPaging: true,
 
         columns: [
             ["dispenseId", "칭량번호"],
@@ -71,11 +73,12 @@ export const dataTypes = {
 
     process: {
         title: "공정 실행",
-        path: null,
+        path: "/mask/process-executions",
         id: "execution_id",
         date: "start_time",
         searchKey: "batchId",
         searchLabel: "LOT 번호",
+        serverPaging: true,
 
         columns: [
             ["execution_id", "공정 실행번호"],
@@ -105,6 +108,7 @@ export const dataTypes = {
         date: "sample_time",
         searchKey: "batchId",
         searchLabel: "LOT 번호",
+        serverPaging: true,
 
         columns: [
             ["qc_id", "검사번호"],
@@ -141,6 +145,7 @@ export const dataTypes = {
         date: "timestamp",
         searchKey: "batchId",
         searchLabel: "LOT 번호",
+        serverPaging: true,
 
         columns: [
             ["pouch_id", "제품번호"],
@@ -184,6 +189,9 @@ export const dataTypes = {
         searchKey: "batchId",
         searchLabel: "LOT 번호",
 
+        // 이상 발생도 서버 검색·페이징으로 연결
+        serverPaging: true,
+
         columns: [
             ["anomalyId", "알람번호"],
             ["occurredAt", "발생시간"],
@@ -211,16 +219,18 @@ export const dataTypes = {
 
     changes: {
         title: "데이터 변경이력",
-        path: "/api/data-change-logs",
+        path: "/mask/data-change-logs",
         id: "change_id",
         date: "changed_at",
         searchKey: "record_id",
         searchLabel: "데이터번호",
+        serverPaging: true,
 
         columns: [
             ["change_id", "변경번호"],
             ["changed_at", "변경시간"],
             ["table_name", "테이블"],
+            ["record_id", "데이터번호"],
             ["column_name", "변경항목"],
             ["change_type", "변경유형"],
             ["userId", "작업자 ID"]
@@ -266,6 +276,14 @@ export function showValue(key, value) {
 
 // 오류 메시지
 export function requestError(error) {
+    if (error.response?.status === 400) {
+        return "검색조건과 페이지 번호를 확인해 주세요.";
+    }
+
+    if (error.response?.status === 404) {
+        return "요청한 주소 또는 데이터를 찾을 수 없습니다.";
+    }
+
     if (error.response) {
         return `조회 실패: HTTP ${error.response.status}`;
     }
@@ -277,19 +295,645 @@ export function requestError(error) {
     return error.message || "조회 중 오류가 발생했습니다.";
 }
 
-// 목록조회
-// 벌크 검사도 페이지 객체가 아닌 배열을 받음
-export async function loadRecords(config, signal, batchId = "") {
+// 원료 칭량: 전체조회 + 조건검색 + 서버 페이징
+export async function loadMaterialPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "batchId",
+        "materialCode",
+        "materialName",
+        "rawMaterialLot",
+        "status",
+        "userId"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.material.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error("원료 칭량 API의 페이지 응답을 확인해 주세요.");
+    }
+
+    return data;
+}
+
+// 공정 실행: 전체조회 + 조건검색 + 서버 페이징
+export async function loadProcessPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "batchId",
+        "processCode",
+        "status"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        params[name] = value;
+    }
+
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.process.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error("공정 실행 API의 페이지 응답을 확인해 주세요.");
+    }
+
+    return data;
+}
+
+// 센서 측정이력: 전체조회 + 조건검색 + 서버 페이징
+export async function loadSensorPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startAt",
+        "endAt",
+        "batchId",
+        "executionId",
+        "processCode",
+        "userId"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else if (name === "executionId") {
+            const executionId = String(value);
+
+            if (
+                !/^\d+$/.test(executionId) ||
+                BigInt(executionId) < 1n ||
+                BigInt(executionId) > 9223372036854775807n
+            ) {
+                throw new Error(
+                    "공정 실행번호는 유효한 양의 정수로 입력해 주세요."
+                );
+            }
+
+            params.executionId = executionId;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    const startTime = params.startAt
+        ? new Date(params.startAt).getTime()
+        : null;
+
+    const endTime = params.endAt
+        ? new Date(params.endAt).getTime()
+        : null;
+
+    if (
+        (startTime !== null && Number.isNaN(startTime)) ||
+        (endTime !== null && Number.isNaN(endTime))
+    ) {
+        throw new Error("측정 시작·종료 일시를 확인해 주세요.");
+    }
+
+    if (
+        startTime !== null &&
+        endTime !== null &&
+        startTime > endTime
+    ) {
+        throw new Error("시작시간은 종료시간보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.sensor.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error("센서 측정이력 API의 페이지 응답을 확인해 주세요.");
+    }
+
+    return data;
+}
+
+// 벌크 검사: 전체조회 + 조건검색 + 서버 페이징
+export async function loadBulkPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "batchId",
+        "overallQcResult",
+        "userId"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.bulk.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error("벌크 검사 API의 페이지 응답을 확인해 주세요.");
+    }
+
+    return data;
+}
+
+// 충진·포장: 전체조회 + 조건검색 + 서버 페이징
+export async function loadFillingPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "batchId",
+        "packagingLine",
+        "finalDisposition",
+        "checkweigherStatus",
+        "metalDetectorStatus",
+        "visionInspectionStatus",
+        "userId"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.filling.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error("충진·포장 API의 페이지 응답을 확인해 주세요.");
+    }
+
+    return data;
+}
+
+// 데이터 변경이력: 전체조회 + 조건검색 + 서버 페이징
+export async function loadChangeLogPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    const params = { page };
+
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "tableName",
+        "recordId",
+        "recordIdKeyword",
+        "columnName",
+        "changeType",
+        "userId"
+    ];
+
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "작업자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else if (name === "changeType") {
+            const changeType = String(value).toUpperCase();
+
+            if (!["INSERT", "UPDATE", "DELETE"].includes(changeType)) {
+                throw new Error(
+                    "변경 유형은 INSERT, UPDATE, DELETE 중 하나여야 합니다."
+                );
+            }
+
+            params.changeType = changeType;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    const response = await api.get(dataTypes.changes.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error(
+            "데이터 변경이력 API의 페이지 응답을 확인해 주세요."
+        );
+    }
+
+    return data;
+}
+
+// 이상 발생: 전체조회 + 조건검색 + 서버 페이징
+export async function loadAnomalyPage(
+    conditions = {},
+    page = 0,
+    signal
+) {
+    // 페이지 번호 확인
+    if (!Number.isInteger(page) || page < 0) {
+        throw new Error("페이지 번호는 0 이상의 정수여야 합니다.");
+    }
+
+    // 한 페이지당 개수는 Spring에서 20으로 고정
+    const params = { page };
+
+    // Anomaly_event_SearchDto의 필드명
+    const conditionNames = [
+        "startDate",
+        "endDate",
+        "severity",
+        "actionStatus",
+        "batchId",
+        "batchIdKeyword",
+        "processCode",
+        "anomalyType",
+        "userId"
+    ];
+
+    // 입력한 조건만 전달
+    for (const name of conditionNames) {
+        let value = conditions[name];
+
+        if (typeof value === "string") {
+            value = value.trim();
+        }
+
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        if (name === "userId") {
+            const userId = Number(value);
+
+            if (
+                !Number.isInteger(userId) ||
+                userId < 1 ||
+                userId > 2147483647
+            ) {
+                throw new Error(
+                    "조치 담당자 번호는 1~2147483647 사이의 정수로 입력해 주세요."
+                );
+            }
+
+            params.userId = userId;
+        } else {
+            params[name] = value;
+        }
+    }
+
+    // 발생기간 확인
+    if (
+        params.startDate &&
+        params.endDate &&
+        params.startDate > params.endDate
+    ) {
+        throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+    }
+
+    // batchId: 정확히 일치
+    // batchIdKeyword: 부분 일치
+    const response = await api.get(dataTypes.anomaly.path, {
+        signal,
+        params
+    });
+
+    const data = response.data;
+
+    // Page_response 응답 확인
+    if (
+        !Array.isArray(data?.content) ||
+        !Number.isInteger(data.page) ||
+        data.page !== page ||
+        data.size !== 20 ||
+        !Number.isInteger(data.totalElements) ||
+        data.totalElements < 0 ||
+        !Number.isInteger(data.totalPages) ||
+        data.totalPages < 0
+    ) {
+        throw new Error(
+            "이상 발생 API의 페이지 응답을 확인해 주세요."
+        );
+    }
+
+    return data;
+}
+
+// 기존 배열 조회 함수
+// 이전 컴포넌트의 import가 깨지지 않도록 유지
+// serverPaging 테이블은 각각의 load○○Page()로 조회
+export async function loadRecords(
+    config,
+    signal,
+    batchId = ""
+) {
     if (!config.path) {
         throw new Error(
             "이 데이터의 조회 API가 아직 연결되지 않았습니다."
         );
     }
 
+    if (config.serverPaging) {
+        throw new Error(
+            "이 데이터는 해당 테이블의 페이지 조회 함수로 연결해 주세요."
+        );
+    }
+
     const params = {};
 
-    // LOT별 이력 화면에서 벌크 검사 조회 시
-    // batchId 조건을 서버에 전달
     if (
         config.path === "/mask/bulk-qc" &&
         batchId.trim()
@@ -304,7 +948,8 @@ export async function loadRecords(config, signal, batchId = "") {
 
     if (!Array.isArray(response.data)) {
         throw new Error(
-            "목록조회 API가 배열을 반환하는지 확인해 주세요."
+            "이 목록은 배열 응답을 사용하고 있습니다. " +
+            "백엔드가 페이지 응답으로 변경됐다면 화면도 함께 수정해야 합니다."
         );
     }
 
@@ -313,14 +958,23 @@ export async function loadRecords(config, signal, batchId = "") {
 
 // PK 개별조회
 export async function loadRecord(config, id, signal) {
+    if (!config.path) {
+        throw new Error(
+            "이 데이터의 상세조회 API가 아직 연결되지 않았습니다."
+        );
+    }
+
     const response = await api.get(
         `${config.path}/${encodeURIComponent(id)}`,
         { signal }
     );
 
-    if (!response.data || response.data[config.id] == null) {
+    if (
+        !response.data ||
+        response.data[config.id] == null
+    ) {
         throw new Error(
-            "PK 개별조회 응답을 확인해 주세요."
+            "해당 데이터가 없거나 PK 개별조회 응답이 올바르지 않습니다."
         );
     }
 
@@ -335,9 +989,7 @@ export async function loadLot(batchId, signal) {
     );
 
     if (!response.data || !response.data.batchId) {
-        throw new Error(
-            "LOT 개별조회 응답을 확인해 주세요."
-        );
+        throw new Error("LOT 개별조회 응답을 확인해 주세요.");
     }
 
     return response.data;

@@ -600,3 +600,114 @@
         font-size: 17px;
     }
 }   
+/* ========================================
+   원료 칭량 검색조건
+   큰 화면: 4열 / 중간 화면: 2열 / 작은 화면: 1열
+======================================== */
+
+.manufacturing-search.manufacturing-material-search {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
+    gap: 18px;
+}
+
+/* 검색조건 이름과 입력창 */
+.manufacturing-material-search > label {
+    min-width: 0;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.manufacturing-material-search input {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+}
+
+/* 기존 날짜 입력창의 최소 너비 해제 */
+.manufacturing-material-search input[type="date"] {
+    min-width: 0;
+}
+
+/* LOT별 이력 화면에서 고정된 LOT 번호 */
+.manufacturing-material-search input[readonly] {
+    background: #f1f5f9;
+    border-color: #dce4ef;
+    color: #52637d;
+}
+
+/* 조회·초기화 버튼 */
+.manufacturing-material-search > button {
+    width: 100%;
+    min-height: 42px;
+}
+
+/* 8개 조건 다음 줄의 오른쪽에 버튼 배치 */
+.manufacturing-material-search > button[type="submit"] {
+    grid-column: 3;
+}
+
+.manufacturing-material-search > button[type="button"] {
+    grid-column: 4;
+}
+
+/* ========================================
+   페이지 이동 버튼
+======================================== */
+
+.manufacturing-pagination > div {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.manufacturing-pagination > span {
+    line-height: 1.6;
+}
+
+/* ========================================
+   중간 화면
+======================================== */
+
+@media (max-width: 1200px) {
+    .manufacturing-search.manufacturing-material-search {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .manufacturing-material-search > button[type="submit"] {
+        grid-column: 1;
+    }
+
+    .manufacturing-material-search > button[type="button"] {
+        grid-column: 2;
+    }
+}
+
+/* ========================================
+   작은 화면
+======================================== */
+
+@media (max-width: 600px) {
+    .manufacturing-search.manufacturing-material-search {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .manufacturing-material-search > button[type="submit"],
+    .manufacturing-material-search > button[type="button"] {
+        grid-column: 1;
+    }
+
+    .manufacturing-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .manufacturing-pagination > div {
+        justify-content: center;
+    }
+
+    .manufacturing-pagination > span {
+        text-align: center;
+    }
+}
