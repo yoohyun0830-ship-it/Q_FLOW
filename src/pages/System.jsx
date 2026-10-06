@@ -107,13 +107,17 @@ export default function SystemPage() {
   // 하단 이력 테이블에서 사용하는 원터치 상태 토글 스위치 (true <-> false)
   const handleToggleStatus = async (ruleId) => {
     try {
-      await axios.put(`${API_BASE_URL}/${ruleId}/toggle`);
+      await axios.put(`http://localhost:8080/mask/anomaly-rules/${ruleId}/change`);
       fetchAllData();
-    } catch (error) {
-      console.error("상태 토글 중 오류 발생:", error);
-      alert("상태 변경에 실패했습니다. (백엔드 WebConfig CORS 설정을 확인해 주세요)");
-    }
-  };
+  } catch (error) {
+    // 백엔드의 "작업자의 동의 필요" 예외 메시지 출력
+    const errorMessage = error.response?.data?.message || error.response?.data || "작업자의 동의 필요";
+    alert(errorMessage);
+    
+    // 실패 시에도 스위치 UI를 원래대로 복원하기 위해 목록 다시 불러오기
+    fetchAllData();
+  }
+};
 
   return (
     <div className="system-page">
