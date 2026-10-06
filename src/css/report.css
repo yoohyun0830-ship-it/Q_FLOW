@@ -193,3 +193,16 @@
     justify-content: space-between;
   }
 }
+.report-page .report-card {
+    min-width: 0;
+}
+
+.report-page .chart-wrapper-large {
+    height: 380px;
+}
+
+@media (max-width: 600px) {
+    .report-page .chart-wrapper-large {
+        height: 320px;
+    }
+}

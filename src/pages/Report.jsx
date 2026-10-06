@@ -7,101 +7,153 @@ import "../css/report.css";
 // 차트 옵션 생성 헬퍼 함수
 // ==========================================
 const getComboChartConfig = ({ labels, passData, rateData }) => {
-  const hasData = labels && labels.length > 0;
+    const hasData = Array.isArray(labels) && labels.length > 0;
+    const itemCount = hasData ? labels.length : 0;
 
-  // 불량률 꺾은선 그래프가 막대 그래프 상단으로 깔끔하게 떠오르도록 Y2 축 최대값 동적 계산
-  const maxRate = hasData ? Math.max(...rateData, 0) : 0;
-  const calculatedY1Max = maxRate > 0 ? Math.ceil(maxRate * 2.5) : 10;
+    return {
+        type: "bar",
 
-  return {
-    data: {
-      labels: hasData ? labels : ["조회 데이터 없음"],
-      datasets: [
-        {
-          type: "bar",
-          label: "생산량 (EA)",
-          data: hasData ? passData : [0],
+        data: {
+            labels: hasData ? labels : [],
 
-          backgroundColor: "rgba(59, 130, 246, 0.25)", // 기존 0.75 -> 0.25로 연하게 변경
-          borderColor: "#2563eb",                      // 테두리 선은 또렷한 파란색 유감없이 유지
-          borderWidth: 1.5,                            // 테두리를 1.5px로 살짝 두껍게 설정
-          borderRadius: 6,
-          barThickness: 36,
-          yAxisID: "y",
-          datalabels: {
-            color: "#0f172a", // 아주 진한 슬레이트 블랙 (또는 "#000000")
-            anchor: "end",    // 막대 끝부분에 위치
-            align: "top",     // 막대 상단 바깥쪽으로 띄우기 (막대 색상과 완전히 분리하여 더 잘 보이게 설정)
-            font: {
-              weight: "bold", // 글자 두께 굵게
-              size: 13,       // 폰트 크기
+            datasets: [
+                {
+                    type: "bar",
+                    label: "양품 수량 (EA)",
+                    data: hasData ? passData : [],
+
+                    backgroundColor: "rgba(59, 130, 246, 0.45)",
+                    borderColor: "#2563eb",
+                    borderWidth: 1,
+                    borderRadius: 3,
+
+                    // 너비를 고정하지 않고 항목 간격에 맞춰 조절
+                    maxBarThickness: 32,
+                    categoryPercentage: 0.8,
+                    barPercentage: 0.8,
+
+                    yAxisID: "y",
+                    order: 2
+                },
+                {
+                    type: "line",
+
+                    // 현재 SQL은 양품 외의 값과 미판정까지 포함
+                    label: "미합격 비율 (%)",
+                    data: hasData ? rateData : [],
+
+                    borderColor: "#ef4444",
+                    backgroundColor: "#ef4444",
+                    borderWidth: 2,
+
+                    // 항목이 많으면 점을 숨기고 선만 표시
+                    pointRadius: itemCount > 30 ? 0 : 3,
+                    pointHoverRadius: 5,
+                    pointHitRadius: 10,
+
+                    tension: 0,
+                    fill: false,
+
+                    yAxisID: "y1",
+                    order: 1
+                }
+            ]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+
+            interaction: {
+                mode: "index",
+                intersect: false
             },
-          },
-        },
-        {
-          type: "line",
-          label: "불량률 (%)",
-          data: hasData ? rateData : [0],
-          borderColor: "#ef4444",
-          backgroundColor: "#ef4444",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderDash: [4, 4],
-          tension: 0.3,
-          yAxisID: "y1",
-          datalabels: {
-            color: "#0f172a", // 아주 진한 슬레이트 블랙 (또는 "#000000")
-            anchor: "end",    // 막대 끝부분에 위치
-            align: "top",     // 막대 상단 바깥쪽으로 띄우기 (막대 색상과 완전히 분리하여 더 잘 보이게 설정)
-            font: {
-              weight: "bold", // 글자 두께 굵게
-              size: 13,       // 폰트 크기
+
+            plugins: {
+                // 등록되어 있는 경우에도 숫자 라벨을 표시하지 않음
+                datalabels: false,
+
+                legend: {
+                          position: "bottom"
+                      },
+
+                tooltip: {
+                    enabled: true,
+                    padding: 12,
+
+                    callbacks: {
+                        label(context) {
+                            const value = context.parsed.y;
+
+                            if (value === null || value === undefined) {
+                                return `${context.dataset.label}: -`;
+                            }
+
+                            if (context.dataset.yAxisID === "y1") {
+                                return `미합격 비율: ${value.toFixed(2)}%`;
+                            }
+
+                            return `양품 수량: ${value.toLocaleString()} EA`;
+                        }
+                    }
+                }
             },
-          },
-          
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false, // 창 크기 조절 시 비율 깨짐 방지 핵심
-      interaction: {
-        mode: "index",
-        intersect: false,
-      },
-      plugins: {
-        legend: { position: "top", align: "end" },
-        tooltip: {
-          padding: 10,
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}${ctx.datasetIndex === 1 ? "%" : " EA"}`,
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
-        },
-        y: {
-          type: "linear",
-          position: "left",
-          beginAtZero: true,
-          title: { display: true, text: "생산량 (EA)", font: { size: 12, weight: "bold" } },
-        },
-        y1: {
-          type: "linear",
-          position: "right",
-          beginAtZero: true,
-          min: 0,
-          max: calculatedY1Max, // 동적 최대값 적용으로 꺾은선과 막대 겹침 문제 해결
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: "불량률 (%)", font: { size: 12, weight: "bold" } },
-          ticks: { callback: (val) => `${val}%` },
-        },
-      },
-    },
-  };
+
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+
+                    ticks: {
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        minRotation: 0,
+                        maxRotation: 45,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+
+                y: {
+                    type: "linear",
+                    position: "left",
+                    beginAtZero: true,
+
+                    title: {
+                        display: true,
+                        text: "양품 수량 (EA)"
+                    },
+
+                    ticks: {
+                        precision: 0,
+                        maxTicksLimit: 6
+                    }
+                },
+
+                y1: {
+                    type: "linear",
+                    position: "right",
+                    beginAtZero: true,
+
+                    grid: {
+                        drawOnChartArea: false
+                    },
+
+                    title: {
+                        display: true,
+                        text: "미합격 비율 (%)"
+                    },
+
+                    ticks: {
+                        maxTicksLimit: 6,
+                        callback: value => `${value}%`
+                    }
+                }
+            }
+        }
+    };
 };
 
 const getDoughnutChartConfig = ({ totalPass, totalFail }) => {
@@ -110,7 +162,7 @@ const getDoughnutChartConfig = ({ totalPass, totalFail }) => {
   return {
     type: "doughnut",
     data: {
-      labels: hasData ? ["양품 (ACCEPTED)", "불량 (REJECTED)"] : ["데이터 없음"],
+      labels: hasData ? ["양품 (ACCEPTED)", "미합격(미판정 포함)"] : ["데이터 없음"],
       datasets: [
         {
           data: hasData ? [totalPass, totalFail] : [1],
