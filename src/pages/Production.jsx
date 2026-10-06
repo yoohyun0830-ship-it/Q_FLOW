@@ -28,6 +28,18 @@ export default function Production(){
     // Spring에서 받아온 원료 칭량이력 저장
     const [materials, setMaterials] = useState([]);
 
+    // 원료 칭량이력 현재 페이지
+    const [materialCurrentPage, setMaterialCurrentPage] = useState(0);
+
+    // 원료 칭량이력 전체 페이지 수
+    const [materialTotalPages, setMaterialTotalPages] = useState(0);
+
+    // 원료 칭량이력 전체 검색 결과 개수
+    const [materialTotalElements, setMaterialTotalElements] = useState(0);
+
+    // 원료 칭량이력 한 페이지 출력 개수
+    const materialPageSize = 10;
+
     // 상세조회한 LOT 하나를 저장
     const [selectedBatch, setSelectedBatch] = useState(null);
 
@@ -119,39 +131,55 @@ export default function Production(){
 
         };
 
-    // 원료 칭량이력 전체조회
-    useEffect(() => {
+    // 원료 칭량이력 전체조회 + 조건검색 + 페이징
+    const fetchMaterials = (page = 0) => {
 
     axios
-        .get("http://localhost:8080/mask/material-dispensing")
+        .get("http://localhost:8080/mask/material-dispensing", {
+            params: {
+                startDate: searchStartDate || null,
+                endDate: searchEndDate || null,
+
+                // 생산 LOT 검색 결과와 동일한 조건을 적용하기 위해
+                // 현재 화면에서는 날짜 조건을 우선 사용
+                page: page,
+                size: materialPageSize
+            }
+        })
         .then((response) => {
 
-            // 받아온 원료 칭량 데이터 확인
-            console.log("원료 칭량이력 :", response.data);
+            console.log("원료 칭량이력 조회 :", response.data);
 
-            // materials 배열에 저장
-            setMaterials(response.data);
+            // 실제 원료 칭량 배열
+            setMaterials(response.data.content);
 
+            // 페이징 정보
+            setMaterialCurrentPage(response.data.number);
+            setMaterialTotalPages(response.data.totalPages);
+            setMaterialTotalElements(response.data.totalElements);
         })
         .catch((error) => {
 
             console.log("원료 칭량이력 조회 실패", error);
-
         });
-
-    }, []);
+};
 
     // 생산 LOT 데이터에서 제품 목록 만들기
         // productName만 가져온 후 중복 제거
         const productList = [
-            ...new Set(
+              ...new Map(
                 batches
-                    .map((batch) => batch.productName)
-                    .filter((productName) => productName)
-            )
+                    .filter((batch) => batch.productCode)
+                    .map((batch) => [
+                        batch.productCode,
+                        {
+                            productCode: batch.productCode,
+                            productName: batch.productName
+                        }
+                    ])
+            ).values()
         ];
-
-    // 검색 조건에 맞는 원료 칭량이력 필터링
+        // 검색 조건에 맞는 원료 칭량이력 필터링
         const filteredMaterials = materials.filter((material) => {
 
         // 검색조건에 의해 남은 LOT 중
@@ -162,6 +190,16 @@ export default function Production(){
 
         });
 
+        // 검색 날짜가 변경되면 원료 칭량이력도 다시 조회
+        useEffect(() => {
+
+            fetchMaterials(0);
+
+        }, [
+            searchStartDate,
+            searchEndDate
+        ]);
+        
     // 생산관리 페이지 전체 영역
         return(
         <div className="production-page">
@@ -302,10 +340,10 @@ export default function Production(){
 
                                 <tbody>
 
-                                {/* LOT 데이터가 존재하면 반복해서 출력 */}
-                                    {filteredBatches.length > 0 ? (
+                                {/* Spring에서 조건검색 + 페이징된 LOT 데이터 출력 */}
+                                    {batches.length > 0 ? (
 
-                                    filteredBatches.map((batch, index) => (
+                                    batches.map((batch, index) => (
 
                                     <tr key={batch.batchId}>
 
@@ -534,15 +572,15 @@ export default function Production(){
                             <tbody>
 
                                 {/* batches 데이터가 존재하면 생산 실적 출력 */}
-                                {filteredBatches.length > 0 ? (
+                                {batches.length > 0 ? (
 
-                                    filteredBatches.map((batch, index) => (
+                                    batches.map((batch, index) => (
 
                                         <tr key={batch.batchId}>
 
                                             {/* 순번 */}
                                             <td>
-                                                {index + 1}
+                                                {currentPage * pageSize + index + 1}
                                             </td>
 
                                             {/* LOT 번호 */}
