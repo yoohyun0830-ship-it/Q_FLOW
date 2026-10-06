@@ -691,7 +691,7 @@ function RecordsContent({ type, batchId }) {
                     textField(
                         "processCode",
                         "공정코드",
-                        "예: OP_S02_HOMO_DISPERSE"
+                        "예: 가열/혼합"
                     )}
 
                 {(isMaterial || isProcess) &&
@@ -777,9 +777,9 @@ function RecordsContent({ type, batchId }) {
                                 }
                             >
                                 <option value="">전체</option>
-                                <option value="INSERT">등록</option>
-                                <option value="UPDATE">수정</option>
-                                <option value="DELETE">삭제</option>
+                                <option value="등록">등록</option>
+                                <option value="수정">수정</option>
+                                <option value="삭제">삭제</option>
                             </select>
                         </label>
                     </>
@@ -796,9 +796,9 @@ function RecordsContent({ type, batchId }) {
                                 }
                             >
                                 <option value="">전체</option>
-                                <option value="ALM_SEV_NORMAL">정상</option>
-                                <option value="ALM_SEV_WARN">주의</option>
-                                <option value="ALM_SEV_CRIT">심각</option>
+                                <option value="정상">정상</option>
+                                <option value="주의">주의</option>
+                                <option value="심각">심각</option>
                             </select>
                         </label>
 
@@ -811,8 +811,8 @@ function RecordsContent({ type, batchId }) {
                                 }
                             >
                                 <option value="">전체</option>
-                                <option value="ACKNOWLEDGED">확인됨</option>
-                                <option value="UNACKNOWLEDGED">미확인</option>
+                                <option value="확인됨">확인됨</option>
+                                <option value="미확인">미확인</option>
                             </select>
                         </label>
 

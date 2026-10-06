@@ -136,7 +136,7 @@ export default function Dashboard() {
                         "/mask/filling-packagings",
                         {
                             batchId,
-                            finalDisposition: "DISP_ACCEPTED"
+                            finalDisposition: "합격"
                         },
                         signal
                     ),
@@ -146,7 +146,7 @@ export default function Dashboard() {
                         "/mask/filling-packagings",
                         {
                             batchId,
-                            finalDisposition: "DISP_REJECTED"
+                            finalDisposition: "불합격"
                         },
                         signal
                     ),
@@ -162,7 +162,7 @@ export default function Dashboard() {
                     loadCount(
                         "/mask/filling-packagings",
                         {
-                            finalDisposition: "DISP_REJECTED"
+                            finalDisposition: "불합격"
                         },
                         signal
                     ),

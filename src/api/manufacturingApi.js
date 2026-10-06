@@ -772,9 +772,9 @@ export async function loadChangeLogPage(
         } else if (name === "changeType") {
             const changeType = String(value).toUpperCase();
 
-            if (!["INSERT", "UPDATE", "DELETE"].includes(changeType)) {
+            if (!["등록", "수정", "삭제"].includes(changeType)) {
                 throw new Error(
-                    "변경 유형은 INSERT, UPDATE, DELETE 중 하나여야 합니다."
+                    "변경 유형은 등록, 수정, 삭제 중 하나여야 합니다."
                 );
             }
 
