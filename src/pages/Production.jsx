@@ -9,6 +9,7 @@ import "../css/dataManagement.css";
 const API_URL = "http://localhost:8080";
 const PAGE_SIZE = 20;
 
+// 검색조건 초기값
 function emptyFilters() {
     return {
         startDate: "",
@@ -18,18 +19,21 @@ function emptyFilters() {
     };
 }
 
+// 기본 표시
 function display(value) {
     return value === null || value === undefined || value === ""
         ? "-"
         : String(value);
 }
 
+// 날짜 표시
 function dateText(value) {
     return value
         ? String(value).replace("T", " ").slice(0, 19)
         : "-";
 }
 
+// 수량 표시
 function quantity(value, unit = "") {
     if (value === null || value === undefined || value === "") {
         return "-";
@@ -42,16 +46,44 @@ function quantity(value, unit = "") {
         : display(value);
 }
 
-function statusText(value) {
-    const labels = {
-        BATCH_STATUS_IN_PROGRESS: "생산중",
-        BATCH_STATUS_COMPLETED: "완료",
-        BATCH_STATUS_STOPPED: "중단"
-    };
+// 생산 상태 색상 표시
+function renderProductionStatus(value) {
+    const text = String(value ?? "").trim();
 
-    return labels[value] ?? display(value);
+    let background = "#f1f5f9";
+    let color = "#64748b";
+
+    if (text === "완료") {
+        background = "#dcfce7";
+        color = "#166534";
+    } else if (text === "진행중") {
+        background = "#dbeafe";
+        color = "#1d4ed8";
+    } else if (text === "중단") {
+        background = "#fee2e2";
+        color = "#b91c1c";
+    }
+
+    return (
+        <span
+            style={{
+                display: "inline-block",
+                padding: "5px 10px",
+                borderRadius: "16px",
+                background,
+                color,
+                fontSize: "12px",
+                fontWeight: 600,
+                lineHeight: 1.4,
+                whiteSpace: "nowrap"
+            }}
+        >
+            {text || "-"}
+        </span>
+    );
 }
 
+// 오류 메시지
 function errorText(error) {
     if (error.response) {
         return `조회에 실패했습니다. 응답 코드: ${error.response.status}`;
@@ -131,7 +163,7 @@ function LotDetailModal({ batchId, onClose }) {
                     ["LOT 번호", display(detail.batchId)],
                     ["제품 코드", display(detail.productCode)],
                     ["제품명", display(detail.productName)],
-                    ["생산 상태", statusText(detail.status)]
+                    ["생산 상태", renderProductionStatus(detail.status)]
                 ]
             },
             {
@@ -197,6 +229,7 @@ function LotDetailModal({ batchId, onClose }) {
                     <p role="alert" style={{ color: "#b91c1c" }}>
                         {error}
                     </p>
+
                     <button
                         type="button"
                         onClick={() => setReload(value => value + 1)}
@@ -239,10 +272,11 @@ function LotDetailModal({ batchId, onClose }) {
 export default function Production() {
     const [tab, setTab] = useState("lot");
 
-    // LOT 목록과 생산 실적에서 사용하는 조건
+    // 입력 중인 조건 / 실제 조회에 적용한 조건
     const [draft, setDraft] = useState(emptyFilters);
     const [filters, setFilters] = useState(emptyFilters);
 
+    // 목록과 페이지 정보
     const [batches, setBatches] = useState([]);
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
@@ -253,13 +287,14 @@ export default function Production() {
     const [inputError, setInputError] = useState("");
     const [reload, setReload] = useState(0);
 
+    // 상세 팝업에서 조회할 LOT
     const [selectedBatchId, setSelectedBatchId] = useState(null);
 
     const isMaterial = tab === "material";
 
-    // LOT 전체조회 + 조건검색 + 페이징
+    // LOT 전체조회 + 조건검색 + 서버 페이징
     useEffect(() => {
-        // 원료 탭은 ManufacturingRecords에서 별도로 조회
+        // 원료 칭량은 ManufacturingRecords에서 조회
         if (isMaterial) return;
 
         const controller = new AbortController();
@@ -289,8 +324,8 @@ export default function Production() {
 
                 const data = response.data;
 
-                // 현재 Batches_Controller는 Spring Page를 반환하므로
-                // 페이지 번호 필드가 page가 아닌 number임
+                // 기존 Spring Page 응답 형식 사용
+                // 페이지 번호는 data.number
                 if (
                     !Array.isArray(data?.content) ||
                     !Number.isInteger(data.number) ||
@@ -306,7 +341,7 @@ export default function Production() {
                     );
                 }
 
-                // 데이터 삭제 등으로 현재 페이지가 사라진 경우
+                // 삭제 등으로 현재 페이지가 사라진 경우
                 if (page > 0 && page >= data.totalPages) {
                     setPage(Math.max(0, data.totalPages - 1));
                     return;
@@ -338,6 +373,7 @@ export default function Production() {
             ...previous,
             [name]: value
         }));
+
         setInputError("");
     }
 
@@ -360,6 +396,7 @@ export default function Production() {
             status: draft.status
         });
 
+        // 검색하면 첫 페이지부터 조회
         setPage(0);
         setInputError("");
         setSelectedBatchId(null);
@@ -399,7 +436,10 @@ export default function Production() {
         setInputError("");
     }
 
-    const firstNumber = batches.length ? page * PAGE_SIZE + 1 : 0;
+    const firstNumber = batches.length
+        ? page * PAGE_SIZE + 1
+        : 0;
+
     const lastNumber = batches.length
         ? page * PAGE_SIZE + batches.length
         : 0;
@@ -437,7 +477,7 @@ export default function Production() {
                 </button>
             </div>
 
-            {/* LOT 목록과 생산 실적의 공통 검색조건 */}
+            {/* LOT 목록과 생산 실적의 검색조건 */}
             {!isMaterial && (
                 <>
                     <form
@@ -480,19 +520,16 @@ export default function Production() {
                             <select
                                 value={draft.status}
                                 onChange={event =>
-                                    updateDraft("status", event.target.value)
+                                    updateDraft(
+                                        "status",
+                                        event.target.value
+                                    )
                                 }
                             >
                                 <option value="">전체 상태</option>
-                                <option value="BATCH_STATUS_IN_PROGRESS">
-                                    생산중
-                                </option>
-                                <option value="BATCH_STATUS_COMPLETED">
-                                    완료
-                                </option>
-                                <option value="BATCH_STATUS_STOPPED">
-                                    중단
-                                </option>
+                                <option value="진행중">진행중</option>
+                                <option value="완료">완료</option>
+                                <option value="중단">중단</option>
                             </select>
                         </label>
 
@@ -519,7 +556,10 @@ export default function Production() {
                             조회
                         </button>
 
-                        <button type="button" onClick={handleReset}>
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                        >
                             초기화
                         </button>
 
@@ -542,7 +582,6 @@ export default function Production() {
 
             <div className="production-content">
                 {isMaterial ? (
-                    // 기존 원료 검색·서버 페이징·상세조회 재사용
                     <div className="manufacturing-page">
                         <ManufacturingRecords type="material" />
                     </div>
@@ -555,7 +594,9 @@ export default function Production() {
                         </p>
 
                         {loading ? (
-                            <p role="status">목록을 불러오는 중입니다…</p>
+                            <p role="status">
+                                목록을 불러오는 중입니다…
+                            </p>
                         ) : error ? (
                             <p role="alert" style={{ color: "#b91c1c" }}>
                                 {error}
@@ -583,10 +624,11 @@ export default function Production() {
                                                 {batches.map((batch, index) => (
                                                     <tr key={batch.batchId}>
                                                         <td>
-                                                            {page * PAGE_SIZE +
-                                                                index + 1}
+                                                            {page * PAGE_SIZE + index + 1}
                                                         </td>
-                                                        <td>{batch.batchId}</td>
+                                                        <td>
+                                                            {batch.batchId}
+                                                        </td>
                                                         <td>
                                                             {display(batch.productName)}
                                                         </td>
@@ -597,7 +639,9 @@ export default function Production() {
                                                             {quantity(batch.actualUnits)}
                                                         </td>
                                                         <td>
-                                                            {statusText(batch.status)}
+                                                            {renderProductionStatus(
+                                                                batch.status
+                                                            )}
                                                         </td>
                                                         <td>
                                                             {dateText(batch.startTime)}
@@ -651,10 +695,11 @@ export default function Production() {
                                                 {batches.map((batch, index) => (
                                                     <tr key={batch.batchId}>
                                                         <td>
-                                                            {page * PAGE_SIZE +
-                                                                index + 1}
+                                                            {page * PAGE_SIZE + index + 1}
                                                         </td>
-                                                        <td>{batch.batchId}</td>
+                                                        <td>
+                                                            {batch.batchId}
+                                                        </td>
                                                         <td>
                                                             {quantity(
                                                                 batch.targetBulkKg,
@@ -702,7 +747,7 @@ export default function Production() {
                                     )}
                                 </div>
 
-                                {/* LOT 목록과 생산 실적 모두 페이지 이동 제공 */}
+                                {/* 서버 페이지 이동 */}
                                 <div className="production-pagination">
                                     <button
                                         type="button"
