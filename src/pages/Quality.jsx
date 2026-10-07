@@ -886,7 +886,7 @@ export default function Quality() {
                     aria-pressed={tab === "finished"}
                     onClick={() => setTab("finished")}
                 >
-                    완제품 검사
+                    충진 검사
                 </button>
             </nav>
 
