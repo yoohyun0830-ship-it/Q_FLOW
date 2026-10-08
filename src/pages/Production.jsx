@@ -97,13 +97,69 @@ function errorText(error) {
 }
 
 // LOT 상세조회 팝업
-function LotDetailModal({ batchId, onClose }) {
+function LotDetailModal({ batchId, onClose, onUpdated }) {
     const dialogRef = useRef(null);
 
     const [detail, setDetail] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [reload, setReload] = useState(0);
+    
+    // LOT 수정 모드
+    const [isEditing, setIsEditing] = useState(false);
+
+        async function handleLotUpdate(event) {
+        event.preventDefault();
+
+        const form = event.currentTarget;
+        const data = new FormData(form);
+
+        const text = name => String(data.get(name) ?? "").trim();
+
+        const number = name => {
+            const value = text(name);
+            return value === "" ? null : Number(value);
+        };
+
+        const date = name => text(name) || null;
+
+        const updateData = {
+            batchId: detail.batchId,
+            productCode: detail.productCode,
+            productName: text("productName"),
+            targetBulkKg: number("targetBulkKg"),
+            actualBulkKg: number("actualBulkKg"),
+            targetUnits: number("targetUnits"),
+            actualUnits: number("actualUnits"),
+            defectUnits: number("defectUnits"),
+            tankId: text("tankId") || null,
+            status: text("status"),
+            userId: number("userId"),
+            startTime: date("startTime"),
+            endTime: date("endTime"),
+            recordSource: text("recordSource")
+        };
+
+        try {
+            await axios.put(
+                `${API_URL}/mask/batches/${encodeURIComponent(batchId)}`,
+                updateData
+            );
+
+            alert("LOT 수정이 완료되었습니다.");
+
+            setIsEditing(false);
+            setReload(value => value + 1);
+            onUpdated();
+
+        } catch (error) {
+            console.error("LOT 수정 실패:", error);
+            alert(
+                error.response?.data?.message ||
+                "LOT 수정에 실패했습니다. 입력값을 확인해 주세요."
+            );
+        }
+}
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -237,72 +293,230 @@ function LotDetailModal({ batchId, onClose }) {
                         다시 조회
                     </button>
                 </div>
-            ) : (
-                sections.map(section => (
-                    <div
-                        key={section.title}
-                        className="lot-detail-section"
-                    >
-                        <h3>{section.title}</h3>
+            ) :  isEditing ? (
+                  <div className="lot-detail-section">
+                    <form id="lot-edit-form" onSubmit={handleLotUpdate}>
+                        <h3>LOT 정보 수정</h3>
+
+                        <p>수정할 LOT 번호: {detail.batchId}</p>
+
+                        <label>
+                            제품명
+                            <input
+                                type="text"
+                                name="productName"
+                                defaultValue={detail.productName ?? ""}
+/>
+                        </label>
 
                         <div className="lot-detail-grid">
-                            {section.items.map(([label, value]) => (
-                                <div
-                                    key={label}
-                                    className="lot-detail-item"
-                                >
-                                    <span>{label}</span>
-                                    <strong>{value}</strong>
-                                </div>
-                            ))}
-                        </div>
+                        <label>
+                            목표 조제량 (kg)
+                            <input
+                                type="number"
+                                name="targetBulkKg"
+                                step="0.0001"
+                                min="0"
+                                defaultValue={detail.targetBulkKg ?? ""}
+                            />
+                        </label>
+
+                        <label>
+                            실제 조제량 (kg)
+                            <input
+                                type="number"
+                                name="actualBulkKg"
+                                step="0.0001"
+                                min="0"
+                                defaultValue={detail.actualBulkKg ?? ""}
+                            />
+                        </label>
+
+                        <label>
+                            목표 생산수량 (개)
+                            <input
+                                type="number"
+                                name="targetUnits"
+                                min="0"
+                                step="1"
+                                defaultValue={detail.targetUnits ?? ""}
+                            />
+                        </label>
+
+                        <label>
+                            실제 양품수량 (개)
+                            <input
+                                type="number"
+                                name="actualUnits"
+                                min="0"
+                                step="1"
+                                defaultValue={detail.actualUnits ?? ""}
+                            />
+                        </label>
+
+                        <label>
+                            불량수량 (개)
+                            <input
+                                type="number"
+                                name="defectUnits"
+                                min="0"
+                                step="1"
+                                defaultValue={detail.defectUnits ?? ""}
+                            />
+                        </label>
+
+                        <label>
+                            사용 탱크
+                            <input
+                                type="text"
+                                name="tankId"
+                                defaultValue={detail.tankId ?? ""}
+                            />
+                        </label>
                     </div>
-                ))
-            )}
+                        <h3>작업 정보</h3>
+                            <div className="lot-detail-grid">
+                                <label>
+                                    생산 상태
+                                    <select name="status" defaultValue={detail.status ?? "대기"}>
+                                        <option value="대기">대기</option>
+                                        <option value="진행중">진행중</option>
+                                        <option value="완료">완료</option>
+                                        <option value="중단">중단</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    담당자 ID
+                                    <input
+                                        type="number"
+                                        name="userId"
+                                        min="1"
+                                        step="1"
+                                        defaultValue={detail.userId ?? ""}
+                                    />
+                                </label>
+
+                                <label>
+                                    생산 시작 일시
+                                    <input
+                                        type="datetime-local"
+                                        name="startTime"
+                                        defaultValue={detail.startTime?.slice(0, 16) ?? ""}
+                                    />
+                                </label>
+
+                                <label>
+                                    생산 종료 일시
+                                    <input
+                                        type="datetime-local"
+                                        name="endTime"
+                                        defaultValue={detail.endTime?.slice(0, 16) ?? ""}
+                                    />
+                                </label>
+
+                                <label>
+                                    데이터 출처
+                                    <select
+                                        name="recordSource"
+                                        defaultValue={detail.recordSource ?? "수기입력"}
+                                    >
+                                        <option value="수기입력">수기입력</option>
+                                        <option value="CSV_IMPORT">CSV 가져오기</option>
+                                    </select>
+                                </label>
+                            </div>
+                            </form>
+                    </div>
+                ) : (
+                    sections.map(section => (
+                        <div
+                            key={section.title}
+                            className="lot-detail-section"
+                        >
+                            <h3>{section.title}</h3>
+
+                            <div className="lot-detail-grid">
+                                {section.items.map(([label, value]) => (
+                                    <div
+                                        key={label}
+                                        className="lot-detail-item"
+                                    >
+                                        <span>{label}</span>
+                                        <strong>{value}</strong>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                )}
 
             <div className="lot-modal-footer">
-                <button type="button" onClick={onClose}>
-                    닫기
-                </button>
+                  {isEditing ? (
+                        <button  key="save"
+                                 type="submit"
+                                 form="lot-edit-form"
+                        >
+                            저장
+                        </button>
+                    ) : (
+                        <button
+                            key="edit"
+                            type="button"
+                            onClick={() => setIsEditing(true)}
+                        >
+                            수정
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                    >
+                        닫기
+                    </button>
             </div>
         </dialog>
     );
 }
 
-export default function Production() {
-    const [tab, setTab] = useState("lot");
+    export default function Production() {
+        const [tab, setTab] = useState("lot");
 
-    // 입력 중인 조건 / 실제 조회에 적용한 조건
-    const [draft, setDraft] = useState(emptyFilters);
-    const [filters, setFilters] = useState(emptyFilters);
+        // 입력 중인 조건 / 실제 조회에 적용한 조건
+        const [draft, setDraft] = useState(emptyFilters);
+        const [filters, setFilters] = useState(emptyFilters);
 
-    // 목록과 페이지 정보
-    const [batches, setBatches] = useState([]);
-    const [page, setPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
+        // 목록과 페이지 정보
+        const [batches, setBatches] = useState([]);
+        const [page, setPage] = useState(0);
+        const [totalPages, setTotalPages] = useState(0);
+        const [totalElements, setTotalElements] = useState(0);
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [inputError, setInputError] = useState("");
-    const [reload, setReload] = useState(0);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState("");
+        const [inputError, setInputError] = useState("");
+        const [reload, setReload] = useState(0);
 
-    // 상세 팝업에서 조회할 LOT
-    const [selectedBatchId, setSelectedBatchId] = useState(null);
+        // 상세 팝업에서 조회할 LOT
+        const [selectedBatchId, setSelectedBatchId] = useState(null);
 
-    const isMaterial = tab === "material";
+        // LOT 등록창
+        const [showLotCreate, setShowLotCreate] = useState(false);
 
-    // LOT 전체조회 + 조건검색 + 서버 페이징
-    useEffect(() => {
-        // 원료 칭량은 ManufacturingRecords에서 조회
-        if (isMaterial) return;
+        const isMaterial = tab === "material";
 
-        const controller = new AbortController();
+        // LOT 전체조회 + 조건검색 + 서버 페이징
+        useEffect(() => {
+            // 원료 칭량은 ManufacturingRecords에서 조회
+            if (isMaterial) return;
 
-        async function fetchBatches() {
-            setLoading(true);
-            setError("");
-            setBatches([]);
+            const controller = new AbortController();
+
+            async function fetchBatches() {
+                setLoading(true);
+                setError("");
+                setBatches([]);
 
             try {
                 const response = await axios.get(
@@ -414,6 +628,58 @@ export default function Production() {
         setPage(0);
         setSelectedBatchId(null);
         setReload(value => value + 1);
+    }
+
+        async function handleLotCreate(event) {
+        event.preventDefault();
+
+        const form = event.currentTarget;
+        const data = new FormData(form);
+
+        // 입력값 변환
+        const text = name => String(data.get(name) ?? "").trim();
+        const number = name => {
+            const value = text(name);
+            return value === "" ? null : Number(value);
+        };
+        const date = name => {
+            const value = text(name);
+            return value === "" ? null : value;
+        };
+
+        const lotData = {
+            batchId: text("batchId"),
+            productCode: text("productCode"),
+            productName: text("productName"),
+            targetBulkKg: number("targetBulkKg"),
+            actualBulkKg: number("actualBulkKg"),
+            targetUnits: number("targetUnits"),
+            actualUnits: number("actualUnits"),
+            defectUnits: number("defectUnits"),
+            tankId: text("tankId") || null,
+            status: text("status"),
+            userId: number("userId"),
+            startTime: date("startTime"),
+            endTime: date("endTime"),
+            recordSource: text("recordSource")
+        };
+
+        try {
+            await axios.post(`${API_URL}/mask/batches`, lotData);
+
+            alert("LOT 등록이 완료되었습니다.");
+
+            setShowLotCreate(false);
+            setPage(0);
+            setReload(previous => previous + 1);
+
+        } catch (error) {
+            console.error("LOT 등록 실패:", error);
+            alert(
+                error.response?.data?.message ||
+                "LOT 등록에 실패했습니다. 입력값을 확인해 주세요."
+            );
+        }
     }
 
     function changePage(nextPage) {
@@ -587,6 +853,15 @@ export default function Production() {
                     </div>
                 ) : (
                     <div aria-busy={loading}>
+                        {tab === "lot" && (
+                            <button
+                                type="button"
+                                className="production-detail-btn"
+                                onClick={() => setShowLotCreate(true)}
+                            >
+                                LOT 등록
+                            </button>
+                        )}
                         <p>
                             {loading || error
                                 ? "검색 결과: -"
@@ -805,7 +1080,190 @@ export default function Production() {
                     key={selectedBatchId}
                     batchId={selectedBatchId}
                     onClose={() => setSelectedBatchId(null)}
+                    onUpdated={() => setReload(value => value + 1)}
                 />
+            )}
+            {showLotCreate && (
+                <div className="lot-modal-overlay">
+                    <div className="lot-modal" role="dialog" aria-modal="true">
+                        <h2>LOT 등록</h2>
+
+                        <p>새로운 생산 LOT를 등록합니다.</p>
+
+                        <form onSubmit={handleLotCreate}>
+
+                        <div className="lot-detail-section">
+                            <h3>기본 정보</h3>
+
+                            <div className="lot-detail-grid">
+                                <label>
+                                    LOT 번호
+                                    <input
+                                        type="text"
+                                        name="batchId"
+                                        placeholder="LOT-20261008-001"
+                                        required
+                                    />
+                                </label>
+
+                                <label>
+                                    제품코드
+                                    <input
+                                        type="text"
+                                        name="productCode"
+                                        placeholder="PRD-MP-HYA05"
+                                        required
+                                    />
+                                </label>
+
+                                <label>
+                                    제품명
+                                    <input
+                                        type="text"
+                                        name="productName"
+                                        placeholder="HYA05 진정 마스크팩 에센스"
+                                        required
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="lot-detail-section">
+                            <h3>생산 정보</h3>
+
+                            <div className="lot-detail-grid">
+                                <label>
+                                    목표 조제량 (kg)
+                                    <input
+                                        type="number"
+                                        name="targetBulkKg"
+                                        step="0.0001"
+                                        min="0"
+                                        placeholder="500"
+                                    />
+                                </label>
+
+                                <label>
+                                    실제 조제량 (kg)
+                                    <input
+                                        type="number"
+                                        name="actualBulkKg"
+                                        step="0.0001"
+                                        min="0"
+                                        placeholder="미입력 가능"
+                                    />
+                                </label>
+
+                                <label>
+                                    목표 생산수량 (개)
+                                    <input
+                                        type="number"
+                                        name="targetUnits"
+                                        min="0"
+                                        step="1"
+                                        placeholder="3000"
+                                    />
+                                </label>
+
+                                <label>
+                                    실제 양품수량 (개)
+                                    <input
+                                        type="number"
+                                        name="actualUnits"
+                                        min="0"
+                                        step="1"
+                                        placeholder="미입력 가능"
+                                    />
+                                </label>
+
+                                <label>
+                                    불량수량 (개)
+                                    <input
+                                        type="number"
+                                        name="defectUnits"
+                                        min="0"
+                                        step="1"
+                                        placeholder="미입력 가능"
+                                    />
+                                </label>
+
+                                <label>
+                                    사용 탱크
+                                    <input
+                                        type="text"
+                                        name="tankId"
+                                        placeholder="TANK_MT_A01"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="lot-detail-section">
+                            <h3>작업 정보</h3>
+
+                            <div className="lot-detail-grid">
+                                <label>
+                                    생산 상태
+                                    <select name="status" defaultValue="대기">
+                                        <option value="대기">대기</option>
+                                        <option value="진행중">진행중</option>
+                                        <option value="완료">완료</option>
+                                        <option value="중단">중단</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    담당자 ID
+                                    <input
+                                        type="number"
+                                        name="userId"
+                                        min="1"
+                                        step="1"
+                                        placeholder="예: 6"
+                                    />
+                                </label>
+
+                                <label>
+                                    생산 시작 일시
+                                    <input
+                                        type="datetime-local"
+                                        name="startTime"
+                                    />
+                                </label>
+
+                                <label>
+                                    생산 종료 일시
+                                    <input
+                                        type="datetime-local"
+                                        name="endTime"
+                                    />
+                                </label>
+
+                                <label>
+                                    데이터 출처
+                                    <select name="recordSource" defaultValue="수기입력">
+                                        <option value="수기입력">수기입력</option>
+                                        <option value="CSV 가져오기">CSV 가져오기</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="lot-modal-footer">
+                            <button type="submit" className="production-search-btn">
+                                등록하기
+                            </button>
+                        </div>
+                        </form>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowLotCreate(false)}
+                        >
+                            닫기
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

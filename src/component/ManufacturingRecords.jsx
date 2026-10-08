@@ -169,6 +169,31 @@ function RecordsContent({ type, batchId }) {
     const [inputError, setInputError] = useState("");
     const [reload, setReload] = useState(0);
 
+    // 원료 칭량이력 등록창
+    const [showMaterialCreate, setShowMaterialCreate] = useState(false);
+    // 원료 칭량 등록 입력값
+    const [materialForm, setMaterialForm] = useState({
+        dispenseId: "",
+        batchId: "",
+        materialCode: "",
+        materialName: "",
+        rawMaterialLot: "",
+        targetQtyKg: "",
+        actualQtyKg: "",
+        userId: "",
+        dispensedAt: "",
+        status: ""
+    });
+
+    function handleMaterialFormChange(event) {
+        const { name, value } = event.target;
+
+        setMaterialForm(previous => ({
+            ...previous,
+            [name]: value
+        }));
+    }
+
     // 입력 중인 조건 / 실제 조회에 적용한 조건
     const [draft, setDraft] = useState(createEmptyFilters);
     const [filters, setFilters] = useState(createEmptyFilters);
@@ -877,6 +902,14 @@ function RecordsContent({ type, batchId }) {
                             </span>
                         </div>
 
+                        {isMaterial && (
+                            <button
+                                type="button"
+                                className="manufacturing-primary"
+                                onClick={()=> setShowMaterialCreate(true)}
+                            >원료 청량 등록</button>
+                        )}
+
                         <button
                             type="button"
                             disabled={loading}
@@ -1000,6 +1033,126 @@ function RecordsContent({ type, batchId }) {
                     )}
                 </section>
             </div>
+            {/* 원료 청량이력 등록 팝업 */}
+            {isMaterial && showMaterialCreate && (
+                <DetailModal
+                    title="원료 청량이력 등록"
+                    onClose={() => setShowMaterialCreate(false)}
+                >
+                    <form className="manufacturing-search">
+
+                        <label>
+                            칭량 ID
+                            <input
+                                type="text"
+                                name="dispenseId"
+                                value={materialForm.dispenseId}
+                                onChange={handleMaterialFormChange}
+                                required
+                            />
+                        </label>
+
+                        <label>
+                            생산 LOT 번호
+                            <input
+                                type="text"
+                                name="batchId"
+                                value={materialForm.batchId}
+                                onChange={handleMaterialFormChange}
+                                required
+                            />
+                        </label>
+
+                        <label>
+                            원료코드
+                            <input
+                                type="text"
+                                name="materialCode"
+                                value={materialForm.materialCode}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            원료명
+                            <input
+                                type="text"
+                                name="materialName"
+                                value={materialForm.materialName}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            원료 LOT 번호
+                            <input
+                                type="text"
+                                name="rawMaterialLot"
+                                value={materialForm.rawMaterialLot}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            목표 칭량량 (kg)
+                            <input
+                                type="number"
+                                name="targetQtyKg"
+                                step="0.0001"
+                                min="0"
+                                value={materialForm.targetQtyKg}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            실제 칭량량 (kg)
+                            <input
+                                type="number"
+                                name="actualQtyKg"
+                                step="0.0001"
+                                min="0"
+                                value={materialForm.actualQtyKg}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            담당자 번호
+                            <input
+                                type="number"
+                                name="userId"
+                                min="1"
+                                step="1"
+                                value={materialForm.userId}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            칭량 일시
+                            <input
+                                type="datetime-local"
+                                name="dispensedAt"
+                                step="1"
+                                value={materialForm.dispensedAt}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                        <label>
+                            칭량 상태
+                            <input
+                                type="text"
+                                name="status"
+                                value={materialForm.status}
+                                onChange={handleMaterialFormChange}
+                            />
+                        </label>
+
+                    </form>
+                </DetailModal>
+            )}
 
             {/* PK 상세조회 팝업 */}
             {selectedId !== null && (
