@@ -16,6 +16,7 @@ import "../css/sidebar.css";
 export default function Sidebar({ isCollapsed }) {
     const { pathname } = useLocation();
     const isAnomalyMenu = pathname === "/anomaly" || pathname.startsWith("/anomaly/");
+    const isQualityMenu = pathname === "/quality" || pathname.startsWith("/quality/");
     const isDataMenu = pathname === "/data" || pathname.startsWith("/data/");
 
     return (
@@ -45,10 +46,29 @@ export default function Sidebar({ isCollapsed }) {
                     {!isCollapsed && <span>생산 관리</span>}
                 </NavLink>
 
-                <NavLink to="/quality" title="품질 관리">
-                    <ShieldCheck className="menu-icon" />
-                    {!isCollapsed && <span>품질 관리</span>}
-                </NavLink>
+                {/* 품질 관리 */}
+                <div className="alarm-menu-group">
+                    <NavLink to="/quality" end title="품질 관리">
+                        <ShieldCheck className="menu-icon" />
+                        {!isCollapsed && <span>품질 관리</span>}
+                        {!isCollapsed && (
+                            <span className="alarm-menu-arrow">
+                                {isQualityMenu ? "▾" : "▸"}
+                            </span>
+                        )}
+                    </NavLink>
+
+                    {!isCollapsed && isQualityMenu && (
+                        <div className="alarm-submenu">
+                            <NavLink to="/quality/report">
+                                불량 & 분석 리포트
+                            </NavLink>
+                            <NavLink to="/quality/approval">
+                                LOT 출하 승인
+                            </NavLink>
+                        </div>
+                    )}
+                </div>
 
                 {/* 이벤트 / 알림 */}
                 <div className="alarm-menu-group">

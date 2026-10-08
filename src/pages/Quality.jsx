@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, Link } from "react-router-dom";
 import axios from "axios";
 
 import {
@@ -861,6 +862,11 @@ function QualityRecords({ type }) {
 
 // 품질관리 페이지
 export default function Quality() {
+    const { pathname } = useLocation();
+    
+    // 현재 경로 확인 (trailing slash 제거)
+    const currentPath = pathname.replace(/\/+$/, "");
+    
     const [tab, setTab] = useState("bulk");
 
     return (
@@ -870,28 +876,51 @@ export default function Quality() {
                 <p>검사 기록을 검색하고 상세정보를 확인합니다.</p>
             </header>
 
-            <nav className="quality-tabs" aria-label="품질검사 종류">
-                <button
-                    type="button"
-                    className={tab === "bulk" ? "active" : ""}
-                    aria-pressed={tab === "bulk"}
-                    onClick={() => setTab("bulk")}
-                >
-                    벌크 검사
-                </button>
 
-                <button
-                    type="button"
-                    className={tab === "finished" ? "active" : ""}
-                    aria-pressed={tab === "finished"}
-                    onClick={() => setTab("finished")}
-                >
-                    충진 검사
-                </button>
-            </nav>
 
-            {/* 탭 변경 시 검색조건과 페이지 초기화 */}
-            <QualityRecords key={tab} type={tab} />
+            {/* 1. 품질 검사 기록 메인 페이지 */}
+            {currentPath === "/quality" && (
+                <>
+                    <nav className="quality-tabs" aria-label="품질검사 종류">
+                        <button
+                            type="button"
+                            className={tab === "bulk" ? "active" : ""}
+                            aria-pressed={tab === "bulk"}
+                            onClick={() => setTab("bulk")}
+                        >
+                            벌크 검사
+                        </button>
+
+                        <button
+                            type="button"
+                            className={tab === "finished" ? "active" : ""}
+                            aria-pressed={tab === "finished"}
+                            onClick={() => setTab("finished")}
+                        >
+                            충진 검사
+                        </button>
+                    </nav>
+
+                    {/* 탭 변경 시 검색조건과 페이지 초기화 */}
+                    <QualityRecords key={tab} type={tab} />
+                </>
+            )}
+
+            {/* 2. 불량 & 분석 리포트 화면 */}
+            {currentPath === "/quality/report" && (
+                <section className="quality-card" style={{ padding: "3rem", textAlign: "center", color: "#666" }}>
+                    <h2>불량 & 분석 리포트</h2>
+                    <p style={{ marginTop: "1rem" }}>4번, 5번 공정의 불량률 및 분석 차트가 이전될 공간입니다.</p>
+                </section>
+            )}
+
+            {/* 3. LOT 출하 승인 (최종 판정) 화면 */}
+            {currentPath === "/quality/approval" && (
+                <section className="quality-card" style={{ padding: "3rem", textAlign: "center", color: "#666" }}>
+                    <h2>LOT 출하 승인</h2>
+                    <p style={{ marginTop: "1rem" }}>이상 데이터가 없고 모든 수치 외 검사(비전/금속/중량)가 합격인 LOT을 최종 승인하는 화면이 구현될 예정입니다.</p>
+                </section>
+            )}
         </div>
     );
 }

@@ -42,6 +42,12 @@ function App() {
                     <Route
                         path="/quality"
                         element={<Quality />}/>
+                    <Route
+                        path="/quality/report"
+                        element={<Quality />}/>
+                    <Route
+                        path="/quality/approval"
+                        element={<Quality />}/>
 
                     <Route
                         path="/anomaly"
