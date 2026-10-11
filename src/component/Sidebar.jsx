@@ -60,11 +60,13 @@ export default function Sidebar({ isCollapsed }) {
 
                     {!isCollapsed && isQualityMenu && (
                         <div className="alarm-submenu">
+                            {/* 💡 [신규 추가] 불량 관리 하위 메뉴 */}
+                            <NavLink to="/quality/defect">
+                                불량 관리
+                            </NavLink>
+
                             <NavLink to="/quality/report">
                                 불량 & 분석 리포트
-                            </NavLink>
-                            <NavLink to="/quality/approval">
-                                LOT 출하 승인
                             </NavLink>
                         </div>
                     )}
@@ -116,10 +118,6 @@ export default function Sidebar({ isCollapsed }) {
                     )}
                 </div>
 
-                <NavLink to="/report" title="분석 및 리포트">
-                    <BarChart3 className="menu-icon" />
-                    {!isCollapsed && <span>분석 및 리포트</span>}
-                </NavLink>
 
                 <NavLink to="/system" title="시스템 관리">
                     <Cog className="menu-icon" />

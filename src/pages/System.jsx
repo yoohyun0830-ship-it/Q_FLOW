@@ -55,10 +55,6 @@ const SENSOR_MAP = {
         {
             value: "점도(cP)",
             label: "점도(cP)"
-        },
-        {
-            value: "미생물 검사",
-            label: "미생물 검사"
         }
     ],
 
@@ -70,10 +66,6 @@ const SENSOR_MAP = {
         {
             value: "실링 온도(℃)",
             label: "실링 온도(℃)"
-        },
-        {
-            value: "금속검출 결과",
-            label: "금속검출 결과"
         }
     ]
 };
@@ -85,8 +77,8 @@ export default function SystemPage() {
 
   // 입력 폼 상태
   const [formData, setFormData] = useState({
-    processCode: "가열/혼합",
-    sensorName: "탱크 온도(℃)",
+    processCode: "원료 칭량",
+    sensorName: "원료 칭량",
 
     warningMin: "75.0",
     warningMax: "80.0",

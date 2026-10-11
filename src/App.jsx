@@ -13,7 +13,6 @@ import Anomaly from "./pages/Anomaly";
 import DataManagement from "./pages/DataManagement";
 
 // 추가
-import Report from "./pages/Report";
 import System from "./pages/System";
 
 function App() {
@@ -42,13 +41,15 @@ function App() {
                     <Route
                         path="/quality"
                         element={<Quality />}/>
-                    <Route
-                        path="/quality/report"
-                        element={<Quality />}/>
-                    <Route
-                        path="/quality/approval"
-                        element={<Quality />}/>
+                    
+                    {/* 2. [신규 추가] 불량 관리 페이지 */}
+                    <Route 
+                        path="/quality/defect" element={<Quality />} />
 
+                    {/* 3. 불량 & 분석 리포트 페이지 */}
+                    <Route 
+                        path="/quality/report" element={<Quality />} />
+                        
                     <Route
                         path="/anomaly"
                         element={<Anomaly key="overview" />}/>
@@ -75,10 +76,6 @@ function App() {
                         element={<DataManagement />}
                     />
 
-                    {/* 분석 및 리포트 */}
-                    <Route
-                        path="/report"
-                        element={<Report />}/>
 
                     {/* 시스템 관리 */}
                     <Route
