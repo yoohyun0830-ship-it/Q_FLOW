@@ -994,3 +994,176 @@ export async function loadLot(batchId, signal) {
 
     return response.data;
 }
+
+// 공정 모니터링 화면에서 사용하는 API
+export const processMonitorApi = {
+
+    // 최근 LOT 목록
+    async lots(signal) {
+        const { data } = await api.get("/mask/batches", {
+            params: {
+                page: 0,
+                size: 20,
+                sort: "createdAt,desc"
+            },
+            signal
+        });
+
+        if (!Array.isArray(data?.content)) {
+            throw new Error("LOT 목록 응답을 확인해 주세요.");
+        }
+
+        return data.content;
+    },
+
+    // 담당자 선택용 사용자 목록
+    async users(signal) {
+        const { data } = await api.get("/mask/users", {
+            signal
+        });
+
+        if (!Array.isArray(data)) {
+            throw new Error("사용자 목록 응답을 확인해 주세요.");
+        }
+
+        return data;
+    },
+
+    // LOT 개별조회
+    async lot(batchId, signal) {
+        const { data } = await api.get(
+            `/mask/batches/${encodeURIComponent(batchId)}`,
+            { signal }
+        );
+
+        if (!data?.batchId) {
+            throw new Error("해당 LOT를 찾을 수 없습니다.");
+        }
+
+        return data;
+    },
+
+    // 선택한 LOT의 공정 실행 이력
+    async executions(batchId, signal) {
+        const rows = [];
+
+        let page = 0;
+        let totalPages;
+
+        do {
+            const { data } = await api.get(
+                "/mask/process-executions",
+                {
+                    params: {
+                        batchId,
+                        page
+                    },
+                    signal
+                }
+            );
+
+            if (
+                !Array.isArray(data?.content)
+                || !Number.isInteger(data.totalPages)
+            ) {
+                throw new Error("공정 실행 목록 응답을 확인해 주세요.");
+            }
+
+            rows.push(...data.content);
+
+            totalPages = data.totalPages;
+            page += 1;
+
+        } while (page < totalPages);
+
+        return rows;
+    },
+
+    // 공정 실행에 연결된 알람
+    async alarms(executionId, signal) {
+        const { data } = await api.get(
+            `/mask/anomaly-events/executions/${executionId}`,
+            { signal }
+        );
+
+        if (!Array.isArray(data)) {
+            throw new Error("알람 목록 응답을 확인해 주세요.");
+        }
+
+        return data;
+    },
+
+    // 공정 실행의 최근 센서 20건
+    async sensors(executionId, signal) {
+        const { data } = await api.get(
+            "/mask/sensor-telemetries",
+            {
+                params: {
+                    executionId,
+                    page: 0
+                },
+                signal
+            }
+        );
+
+        if (!Array.isArray(data?.content)) {
+            throw new Error("센서 목록 응답을 확인해 주세요.");
+        }
+
+        return data.content;
+    },
+
+    // 첫 공정 시작
+    async start(batchId) {
+        const { data } = await api.post(
+            "/mask/process-executions",
+            {
+                batchId,
+                processCode: "원료 칭량"
+            }
+        );
+
+        return data;
+    },
+
+    // 공정 종료
+    async finish(executionId) {
+        const { data } = await api.patch(
+            `/mask/process-executions/${executionId}/finish`
+        );
+
+        return data;
+    },
+
+    // 공정 진행 조건 재검사
+    async resume(executionId) {
+        const { data } = await api.patch(
+            `/mask/process-executions/${executionId}/resume`
+        );
+
+        return data;
+    },
+
+    // 주의 알람 확인
+    async confirm(anomalyId, userId) {
+        const { data } = await api.patch(
+            `/mask/anomaly-events/${anomalyId}/confirm`,
+            { userId }
+        );
+
+        return data;
+    },
+
+    // 심각 알람 조치 완료
+    async action(anomalyId, userId, actionNote) {
+        const { data } = await api.patch(
+            `/mask/anomaly-events/${anomalyId}/action`,
+            {
+                userId,
+                actionNote
+            }
+        );
+
+        return data;
+    }
+};
