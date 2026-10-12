@@ -476,6 +476,79 @@ function RecordsContent({ type, batchId }) {
     }));
 }
 
+    // 원료 칭량이력 수정 저장
+    async function handleMaterialUpdate() {
+    const dispenseId = materialEditForm.dispenseId;
+
+    const updateData = {
+        dispenseId: dispenseId,
+        batchId: materialEditForm.batchId,
+        materialCode: materialEditForm.materialCode,
+        materialName: materialEditForm.materialName,
+        rawMaterialLot: materialEditForm.rawMaterialLot,
+        targetQtyKg: Number(materialEditForm.targetQtyKg),
+        actualQtyKg: Number(materialEditForm.actualQtyKg),
+        userId: Number(materialEditForm.userId),
+        dispensedAt: materialEditForm.dispensedAt,
+        status: materialEditForm.status
+    };
+        try {
+        await axios.put(
+            `http://localhost:8080/mask/material-dispensing/${encodeURIComponent(dispenseId)}`,
+            updateData
+        );
+
+        alert("원료 칭량이력이 수정되었습니다.");
+
+        setIsMaterialEditing(false);
+
+        setDetail(previous => ({
+            ...previous,
+            ...updateData
+        }));
+
+        setReload(previous => previous + 1);
+
+    } catch (error) {
+        console.error("원료 칭량이력 수정 실패:", error);
+        alert("원료 칭량이력 수정에 실패했습니다.");
+    }
+    }
+    // 원료 칭량이력 논리적 삭제
+    async function handleMaterialDelete() {
+        const dispenseId = detail?.dispenseId;
+
+        if (!dispenseId) {
+            alert("삭제할 원료 칭량이력을 선택해 주세요.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "정말 삭제하시겠습니까?\n삭제된 데이터는 일반 목록에서 제외됩니다."
+        );
+
+        if (!confirmed) return;
+
+        try {
+            await axios.delete(
+                `http://localhost:8080/mask/material-dispensing/${encodeURIComponent(dispenseId)}`
+            );
+
+            alert("원료 칭량이력이 삭제 처리되었습니다.");
+
+            // 상세조회 닫기
+            setDetail(null);
+            setIsMaterialEditing(false);
+
+            // 목록 다시 조회
+            setReload(previous => previous + 1);
+
+        } catch (error) {
+            console.error("원료 칭량이력 삭제 실패:", error);
+            alert("원료 칭량이력 삭제에 실패했습니다.");
+        }
+    }
+
     // 팝업 닫기 및 상세 상태 초기화
     function clearDetail() {
         setSelectedId(null);
@@ -1289,6 +1362,21 @@ function RecordsContent({ type, batchId }) {
                                         수정
                                     </button>
                                 )}
+                                
+                                {/* 원료 칭량 삭제 버튼 */}
+                                {isMaterial && !isMaterialEditing && (
+                                    <button
+                                        type="button"
+                                        onClick={handleMaterialDelete}
+                                        style={{
+                                            color: "#dc2626",
+                                            border: "1px solid #dc2626",
+                                            backgroundColor: "white"
+                                        }}
+                                    >
+                                        삭제
+                                    </button>
+                                )}
                                 {isMaterial && isMaterialEditing ? (
                         <div className="manufacturing-search">
 
@@ -1325,6 +1413,14 @@ function RecordsContent({ type, batchId }) {
                                     />
                                 </label>
                             ))}
+
+                            <button
+                                type="button"
+                                className="manufacturing-primary"
+                                onClick={handleMaterialUpdate}
+                            >
+                                수정 저장
+                            </button>
 
                             <button
                                 type="button"
