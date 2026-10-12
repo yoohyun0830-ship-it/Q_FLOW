@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import DetailModal from "./DetailModal";
 import "../css/detailModal.css";
+import axios from "axios";
 
 import {
     dataTypes,
@@ -194,6 +195,54 @@ function RecordsContent({ type, batchId }) {
         }));
     }
 
+    async function  handleMaterialCreate(event){
+        event.preventDefault();
+
+        const dispenseId = materialForm.dispenseId.trim();
+        const batchId = materialForm.batchId.trim();
+
+        if(!dispenseId || !batchId){
+            alert("청량 ID와 생산 LOT 번호를 입력해주세요.");
+            return;
+        }
+
+        const createData = {
+            dispenseId,
+            batchId,
+            materialCode: materialForm.materialCode.trim(),
+            materialName: materialForm.materialName.trim(),
+            rawMaterialLot: materialForm.rawMaterialLot.trim(),
+
+            targetQtyKg: materialForm.targetQtyKg === ""
+                ? null : Number(materialForm.targetQtyKg),
+            actualQtyKg: materialForm.actualQtyKg === ""
+                ? null : Number(materialForm.actualQtyKg),
+            userId : materialForm.userId === ""
+                ? null : Number(materialForm.userId),
+            dispensedAt : materialForm.dispensedAt || null,
+            status : materialForm.status.trim()
+        };
+
+        try{
+            await axios.post(
+                "http://localhost:8080/mask/material-dispensing",
+                createData
+            );
+
+            alert("원료 청량이력이 등록되었습니다.");
+
+            setShowMaterialCreate(false);
+            setReload(value => value+1);
+        } catch (error){
+            console.error("원료 청량 등록 실패" , error);
+
+            alert(
+                error.response?.data?.message ||
+                "원료 청량 등록에 실패했습니다."
+            );
+        }
+    }
+
     // 입력 중인 조건 / 실제 조회에 적용한 조건
     const [draft, setDraft] = useState(createEmptyFilters);
     const [filters, setFilters] = useState(createEmptyFilters);
@@ -207,6 +256,10 @@ function RecordsContent({ type, batchId }) {
     // 상세조회 및 팝업
     const [selectedId, setSelectedId] = useState(null);
     const [detail, setDetail] = useState(null);
+    // 원료 칭량이력 수정 모드
+    const [isMaterialEditing, setIsMaterialEditing] = useState(false);
+    // 원료 칭량이력 수정 입력값
+    const [materialEditForm, setMaterialEditForm] = useState({});
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState("");
 
@@ -412,6 +465,16 @@ function RecordsContent({ type, batchId }) {
         // 팝업을 닫거나 선택이 바뀌면 기존 요청 취소
         return () => controller.abort();
     }, [config, selectedId]);
+
+    // 원료 칭량이력 수정 입력값 변경
+    function handleMaterialEditChange(event) {
+    const { name, value } = event.target;
+
+    setMaterialEditForm(previous => ({
+        ...previous,
+        [name]: value
+    }));
+}
 
     // 팝업 닫기 및 상세 상태 초기화
     function clearDetail() {
@@ -1039,7 +1102,9 @@ function RecordsContent({ type, batchId }) {
                     title="원료 청량이력 등록"
                     onClose={() => setShowMaterialCreate(false)}
                 >
-                    <form className="manufacturing-search">
+                    <form className="manufacturing-search"
+                          onSubmit={handleMaterialCreate}
+                    >
 
                         <label>
                             칭량 ID
@@ -1149,7 +1214,20 @@ function RecordsContent({ type, batchId }) {
                                 onChange={handleMaterialFormChange}
                             />
                         </label>
+                        <div>
+                            <button
+                                type="submit"
+                                className="manufacturing-primary"
+                            >등록하기
+                            </button>
 
+                            <button 
+                                type="button"
+                                onClick={() => setShowMaterialCreate(false)}
+                                >
+                                취소
+                            </button>
+                        </div>
                     </form>
                 </DetailModal>
             )}
@@ -1185,16 +1263,86 @@ function RecordsContent({ type, batchId }) {
                             </p>
                         ) : detail ? (
                             <>
-                                <dl className="manufacturing-detail">
-                                    {config.fields.map(([key, label]) => (
-                                        <div key={key}>
-                                            <dt>{label}</dt>
-                                            <dd>
-                                                {renderRecordValue(key, detail[key])}
-                                            </dd>
-                                        </div>
-                                    ))}
-                                </dl>
+                                {isMaterial && (
+                                    <button
+                                        type="button"
+                                        className="manufacturing-primary"
+                                        onClick={() => {
+                                                        setMaterialEditForm({
+                                                            dispenseId: detail.dispenseId ?? "",
+                                                            batchId: detail.batchId ?? "",
+                                                            materialCode: detail.materialCode ?? "",
+                                                            materialName: detail.materialName ?? "",
+                                                            rawMaterialLot: detail.rawMaterialLot ?? "",
+                                                            targetQtyKg: detail.targetQtyKg ?? "",
+                                                            actualQtyKg: detail.actualQtyKg ?? "",
+                                                            userId: detail.userId ?? "",
+                                                            dispensedAt: detail.dispensedAt
+                                                                ? detail.dispensedAt.slice(0, 19)
+                                                                : "",
+                                                            status: detail.status ?? ""
+                                                        });
+
+                                                        setIsMaterialEditing(true);
+                                                    }}
+                                    >
+                                        수정
+                                    </button>
+                                )}
+                                {isMaterial && isMaterialEditing ? (
+                        <div className="manufacturing-search">
+
+                            {[
+                                ["materialCode", "원료코드"],
+                                ["materialName", "원료명"],
+                                ["rawMaterialLot", "원료 LOT 번호"],
+                                ["targetQtyKg", "목표 칭량량 (kg)"],
+                                ["actualQtyKg", "실제 칭량량 (kg)"],
+                                ["userId", "담당자 번호"],
+                                ["dispensedAt", "칭량 일시"],
+                                ["status", "칭량 상태"]
+                            ].map(([name, label]) => (
+                                <label key={name}>
+                                    {label}
+                                    <input
+                                        type={
+                                            name === "dispensedAt"
+                                                ? "datetime-local"
+                                                : ["targetQtyKg", "actualQtyKg", "userId"].includes(name)
+                                                    ? "number"
+                                                    : "text"
+                                        }
+                                        name={name}
+                                        value={materialEditForm[name] ?? ""}
+                                        step={
+                                            name === "userId"
+                                                ? "1"
+                                                : ["targetQtyKg", "actualQtyKg"].includes(name)
+                                                    ? "0.0001"
+                                                    : undefined
+                                        }
+                                        onChange={handleMaterialEditChange}
+                                    />
+                                </label>
+                            ))}
+
+                            <button
+                                type="button"
+                                onClick={() => setIsMaterialEditing(false)}
+                            >
+                                수정 취소
+                            </button>
+                        </div>
+                    ) : (
+                        <dl className="manufacturing-detail">
+                            {config.fields.map(([key, label]) => (
+                                <div key={key}>
+                                    <dt>{label}</dt>
+                                    <dd>{renderRecordValue(key, detail[key])}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    )}
 
                                 {/* 데이터 변경이력의 추가 상세정보 */}
                                 {isChanges && (
