@@ -367,7 +367,7 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
 
                 setDetail(data);
                 setOverallResult(data[config.result] || config.fail);
-                setQcNotesCode(data.qc_notes_code || "");
+                setQcNotesCode(data.qc_notes_code || data.note || "");
             } catch (err) {
                 if (!controller.signal.aborted) {
                     setError(errorText(err));
@@ -383,8 +383,8 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
         return () => controller.abort();
     }, [config, id]);
 
-    // 판정 수정 요청 (PUT)
-    const handlePut = async (e) => {
+    // 💡 [수정] 백엔드 PATCH 통합 API에 맞춰 요청 보냄
+    const handleSave = async (e) => {
         e.preventDefault();
 
         if (overallResult === config.pass && !qcNotesCode.trim()) {
@@ -394,29 +394,41 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
 
         setSubmitting(true);
         try {
-            const body = {
-                [config.result]: overallResult,
-                qc_notes_code: qcNotesCode.trim()
-            };
+            // 💡 백엔드 Filling_packaging_Result_Dto 요구 스펙 맞춤
+            const isBulk = config.path.includes("bulk");
+            const endpoint = `${BASE_URL}${config.path}/${encodeURIComponent(id)}/result`;
 
-            const endpoint = config.path.includes("bulk")
-                ? `${BASE_URL}${config.path}/${encodeURIComponent(id)}/result`
-                : `${BASE_URL}${config.path}/${encodeURIComponent(id)}/final-result`;
+            const body = isBulk
+                ? {
+                    overallQcResult: overallResult,
+                    qcNotesCode: qcNotesCode.trim(),
+                    userId: detail?.userId || 1
+                  }
+                : {
+                    userId: detail?.userId || 1, // DTO 필수값 (담당자 ID)
+                    final_disposition: overallResult,
+                    note: qcNotesCode.trim(),
+                    checkweigher_status: detail?.checkweigher_status || null,
+                    metal_detector_status: detail?.metal_detector_status || null,
+                    vision_inspection_status: detail?.vision_inspection_status || null
+                  };
 
-            await axios.put(endpoint, body);
+            // 💡 PUT -> PATCH로 변경
+            await axios.patch(endpoint, body);
 
             alert("성공적으로 변경되었습니다.");
             onUpdated();
             onClose();
         } catch (err) {
             console.error("수정 실패:", err);
-            alert(`변경 실패: ${err.response?.data || err.message}`);
+            const serverMsg = err.response?.data?.message || err.response?.data || err.message;
+            alert(`변경 실패: ${serverMsg}`);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // 판정 및 비고 초기화 요청 (DELETE)
+    // 판정 및 비고 초기화 요청
     const handleClear = async () => {
         if (!window.confirm("판정 결과 및 비고 내용을 초기화(삭제)하시겠습니까?")) {
             return;
@@ -424,18 +436,33 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
 
         setSubmitting(true);
         try {
-            const endpoint = config.path.includes("bulk")
-                ? `${BASE_URL}${config.path}/${encodeURIComponent(id)}/result-notes`
-                : `${BASE_URL}${config.path}/${encodeURIComponent(id)}/final-result`;
+            const isBulk = config.path.includes("bulk");
+            const endpoint = `${BASE_URL}${config.path}/${encodeURIComponent(id)}/result`;
 
-            await axios.delete(endpoint);
+            const body = isBulk
+                ? {
+                    overallQcResult: config.fail,
+                    qcNotesCode: "",
+                    userId: detail?.userId || 1
+                  }
+                : {
+                    userId: detail?.userId || 1,
+                    final_disposition: config.fail,
+                    note: "",
+                    checkweigher_status: detail?.checkweigher_status || null,
+                    metal_detector_status: detail?.metal_detector_status || null,
+                    vision_inspection_status: detail?.vision_inspection_status || null
+                  };
+
+            await axios.patch(endpoint, body);
 
             alert("초기화가 완료되었습니다.");
             onUpdated();
             onClose();
         } catch (err) {
             console.error("초기화 실패:", err);
-            alert(`초기화 실패: ${err.response?.data || err.message}`);
+            const serverMsg = err.response?.data?.message || err.response?.data || err.message;
+            alert(`초기화 실패: ${serverMsg}`);
         } finally {
             setSubmitting(false);
         }
@@ -466,7 +493,7 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
                     <p className="quality-error">{error}</p>
                 ) : detail && (
                     <div className="defect-modal-content">
-                        <form id="defect-edit-form" onSubmit={handlePut} className="quality-card defect-edit-card">
+                        <form id="defect-edit-form" onSubmit={handleSave} className="quality-card defect-edit-card">
                             <h3>💡 판정 수정</h3>
                             <div className="defect-edit-grid">
                                 <label>
@@ -497,7 +524,7 @@ function DefectEditModal({ config, id, onClose, onUpdated }) {
                             <h3>📋 검사 측정 항목 상세</h3>
                             <dl className="quality-detail-grid">
                                 {config.fields
-                                    .filter(([key]) => key !== config.result && key !== "qc_notes_code")
+                                    .filter(([key]) => key !== config.result && key !== "qc_notes_code" && key !== "note")
                                     .map(([key, label]) => (
                                         <div key={key}>
                                             <dt>{label}</dt>
@@ -677,12 +704,14 @@ function DefectManagement() {
                                         </tr>
                                     ) : (
                                         rows.map((row, index) => {
-                                            const noteText = row.qc_notes_code?.trim();
+                                            const itemId = row[config.id];
+                                            const noteText = (row.qc_notes_code || row.note)?.trim();
 
                                             return (
-                                                <tr key={row[config.id]}>
+                                                /* 💡 key에 고유 식별값 명시하여 React unique key 경고 해결 */
+                                                <tr key={itemId || index}>
                                                     <td>{page * PAGE_SIZE + index + 1}</td>
-                                                    <td><strong>{row[config.id]}</strong></td>
+                                                    <td><strong>{itemId}</strong></td>
                                                     <td>{row.batchId || "-"}</td>
                                                     <td>{row.userId || "-"}</td>
                                                     <td>
@@ -699,7 +728,7 @@ function DefectManagement() {
                                                         <button
                                                             type="button"
                                                             className="quality-primary"
-                                                            onClick={() => setSelectedDefectId(row[config.id])}
+                                                            onClick={() => setSelectedDefectId(itemId)}
                                                         >
                                                             결과 수정
                                                         </button>

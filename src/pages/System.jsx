@@ -8,8 +8,8 @@ const API_BASE_URL = "http://localhost:8080/mask/anomaly-rules";
 const SENSOR_MAP = {
   "원료 칭량": [
         {
-            value: "원료 칭량",
-            label: "원료 칭량"
+            value: "원료 투입량",
+            label: "원료 투입량"
         },
         {
             value: "pH",
@@ -78,7 +78,7 @@ export default function SystemPage() {
   // 입력 폼 상태
   const [formData, setFormData] = useState({
     processCode: "원료 칭량",
-    sensorName: "원료 칭량",
+    sensorName: "원료 투입량",
 
     warningMin: "75.0",
     warningMax: "80.0",
