@@ -270,3 +270,8 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+.rule-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.rule-fields .form-row { gap: 12px; justify-content: space-between; }
+.rule-fields .form-input, .rule-fields .form-select { min-width: 0; width: 65%; }
+.rule-table-scroll { overflow-x: auto; }
+.rule-fields p { font-size: 13px; color: #475569; }

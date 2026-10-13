@@ -1,409 +1,132 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import "../css/system.css";
 
-const API_BASE_URL = "http://localhost:8080/mask/anomaly-rules";
-
-// 공정별 종속 검사항목 매핑 데이터
-const SENSOR_MAP = {
+const API = "http://localhost:8080/mask/anomaly-rules";
+const RULE_OPTIONS = {
   "원료 칭량": [
-        {
-            value: "원료 투입량",
-            label: "원료 투입량"
-        },
-        {
-            value: "pH",
-            label: "pH"
-        }
-    ],
-
-    "가열/혼합": [
-        {
-            value: "탱크 온도(℃)",
-            label: "탱크 온도(℃)"
-        },
-        {
-            value: "교반 속도(RPM)",
-            label: "교반 속도(RPM)"
-        },
-        {
-            value: "모터 토크(%)",
-            label: "모터 토크(%)"
-        },
-        {
-            value: "가열 압력",
-            label: "가열 압력"
-        }
-    ],
-
-    "냉각": [
-        {
-            value: "냉각 온도(℃)",
-            label: "냉각 온도(℃)"
-        },
-        {
-            value: "점도(cP)",
-            label: "점도(cP)"
-        }
-    ],
-
-    "벌크 검사": [
-        {
-            value: "pH",
-            label: "pH"
-        },
-        {
-            value: "점도(cP)",
-            label: "점도(cP)"
-        }
-    ],
-
-    "최종 포장 검사": [
-        {
-            value: "충진량(mL)",
-            label: "충진량(mL)"
-        },
-        {
-            value: "실링 온도(℃)",
-            label: "실링 온도(℃)"
-        }
-    ]
+    ["대량 원료 칭량 오차", "dispensing_error_pct", "WEIGHT_GT10_PCT"],
+    ["일반 원료 칭량 오차", "dispensing_error_pct", "WEIGHT_1_10_PCT"],
+    ["미량 원료 칭량 오차", "dispensing_error_g", "WEIGHT_LT1_G"]
+  ],
+  "가열/혼합": [
+    ["가열 유지 온도 이탈", "tank_temp_c", "HEAT_HOLD_RANGE"],
+    ["가열 유지 교반속도 이탈", "paddle_rpm", "HEAT_HOLD_RANGE"]
+  ],
+  "냉각": [["기능성 원료 투입 온도 초과", "tank_temp_c", "BEFORE_HA_UPPER"]],
+  "벌크 검사": [
+    ["벌크 pH 이상", "ph_measured", "RANGE"],
+    ["벌크 점도 이상", "viscosity_measured", "RANGE"]
+  ],
+  "최종 포장 검사": [
+    ["시트 중량 이상", "sheet_dry_weight_g", "RANGE"],
+    ["파우치 자체중량 이상", "pouch_tare_weight_g", "RANGE"],
+    ["에센스 순중량 이상", "essence_net_weight_g", "RANGE"],
+    ["완제품 총중량 이상", "gross_total_weight_g", "RANGE"],
+    ["실링온도 이상", "seal_temp_c", "SEAL_BOTH_RANGE"]
+  ]
 };
+const emptyRule = () => ({ processCode: "원료 칭량", anomalyType: "대량 원료 칭량 오차", sensorName: "dispensing_error_pct", conditionType: "WEIGHT_GT10_PCT",
+  warningMin: "", warningMax: "", criticalMin: "", criticalMax: "", statusValue: "", durationSeconds: 0,
+  checkItems: "", responseDescription: "", isActive: true });
+const processes = ["원료 칭량", "가열/혼합", "냉각", "벌크 검사", "최종 포장 검사"];
+const numericFields = ["warningMin", "warningMax", "criticalMin", "criticalMax"];
+const range = (min, max) => min == null ? (max == null ? "-" : "≤ " + max) : max == null ? "≥ " + min : min + " ~ " + max;
+const errorMessage = error => error.response?.data?.detail || error.response?.data?.message || "요청에 실패했습니다. 서버 상태와 입력값을 확인해 주세요.";
 
 export default function SystemPage() {
   const [rules, setRules] = useState([]);
-  const [activeRules, setActiveRules] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(emptyRule);
+  const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  // 입력 폼 상태
-  const [formData, setFormData] = useState({
-    processCode: "원료 칭량",
-    sensorName: "원료 투입량",
-
-    warningMin: "75.0",
-    warningMax: "80.0",
-    criticalMin: "80.0",
-    criticalMax: "95.0",
-
-    durationSeconds: 30,
-    conditionType: "범위",
-    isActive: true
-  });
-
+  const load = async () => {
+    setLoading(true);
+    try { setRules((await axios.get(API)).data); return true; }
+    catch (e) { setError(errorMessage(e)); return false; }
+    finally { setLoading(false); }
+  };
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    axios.get(API, { signal: controller.signal })
+      .then(response => { if (!controller.signal.aborted) setRules(response.data); })
+      .catch(e => { if (!controller.signal.aborted) setError(errorMessage(e)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
-
-  const fetchAllData = async () => {
+  const change = e => setForm(prev => ({ ...prev, [e.target.name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  // DB의 기존 규칙도 선택 목록에 포함해 이전 데이터 편집을 지원한다.
+  const optionsFor = process => {
+    const options = (RULE_OPTIONS[process] || []).map(([anomalyType, sensorName, conditionType]) => ({ anomalyType, sensorName, conditionType }));
+    rules.filter(rule => rule.processCode === process).forEach(rule => {
+      if (!options.some(option => option.anomalyType === rule.anomalyType)) options.push(rule);
+    });
+    return options;
+  };
+  const selectType = (process, type) => {
+    const option = optionsFor(process).find(item => item.anomalyType === type);
+    setForm(prev => ({ ...prev, processCode: process, anomalyType: option?.anomalyType || "",
+      sensorName: option?.sensorName || "", conditionType: option?.conditionType || "RANGE" }));
+  };
+  const edit = rule => {
+    const next = emptyRule();
+    Object.keys(next).forEach(key => { next[key] = rule[key] ?? (key === "isActive" ? false : ""); });
+    setForm(next); setEditingId(rule.ruleId); setError(""); setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const reset = () => { setEditingId(null); setForm(emptyRule()); };
+  const submit = async e => {
+    e.preventDefault(); setSaving(true); setError(""); setMessage("");
+    const payload = { ...form, durationSeconds: Number(form.durationSeconds), statusValue: form.statusValue.trim() || null };
+    numericFields.forEach(key => { payload[key] = form[key] === "" ? null : Number(form[key]); });
     try {
-      setLoading(true);
-      const [allRes, activeRes] = await Promise.all([
-        axios.get(API_BASE_URL),
-        axios.get(`${API_BASE_URL}?activeOnly=true`),
-      ]);
-      setRules(allRes.data);
-      setActiveRules(activeRes.data);
-    } catch (error) {
-      console.error("이상 감지 규칙 데이터 로드 실패:", error);
-    } finally {
-      setLoading(false);
-    }
+      if (editingId !== null) await axios.put(API + "/" + editingId, payload);
+      else await axios.post(API, payload);
+      reset();
+      const loaded = await load();
+      setMessage(loaded ? "규칙을 저장했습니다." : "저장은 완료했지만 목록을 새로 불러오지 못했습니다.");
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setSaving(false); }
   };
-
-  // 공정(processCode) 변경 시 해당 공정의 첫 번째 검사항목으로 자동 변경
-  const handleProcessChange = (e) => {
-    const selectedProcess = e.target.value;
-    const availableSensors = SENSOR_MAP[selectedProcess] || [];
-    const defaultSensor = availableSensors.length > 0 ? availableSensors[0].value : "";
-
-    setFormData((prev) => ({
-      ...prev,
-      processCode: selectedProcess,
-      sensorName: defaultSensor,
-    }));
+  const toggle = async id => {
+    setSaving(true); setError(""); setMessage("");
+    try { await axios.put(API + "/" + id + "/change"); await load(); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setSaving(false); }
   };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post(API_BASE_URL, formData);
-      if (response.status === 200 || response.status === 201) {
-        alert("이상 판정 개정 기준이 성공적으로 저장되었습니다.");
-        fetchAllData();
-      }
-    } catch (error) {
-      console.error("규칙 저장 중 오류 발생:", error);
-      alert("저장에 실패했습니다. 백엔드 서버 상태 및 입력값을 확인해 주세요.");
-    }
-  };
-
-  // 하단 이력 테이블에서 사용하는 원터치 상태 토글 스위치 (true <-> false)
-  const handleToggleStatus = async (ruleId) => {
-    try {
-      await axios.put(`http://localhost:8080/mask/anomaly-rules/${ruleId}/change`);
-      fetchAllData();
-  } catch (error) {
-    // 백엔드의 "작업자의 동의 필요" 예외 메시지 출력
-    const errorMessage = error.response?.data?.message || error.response?.data || "작업자의 동의 필요";
-    alert(errorMessage);
-    
-    // 실패 시에도 스위치 UI를 원래대로 복원하기 위해 목록 다시 불러오기
-    fetchAllData();
-  }
-};
-
-  return (
-    <div className="system-page">
-      <div className="system-grid">
-        {/* 1. 이상 판정 기준 설정 카드 */}
-        <div className="system-card anomaly-config-card">
-          <div className="card-header">
-            <h3>이상 판정 기준 설정</h3>
-          </div>
-          <form className="card-body" onSubmit={handleSubmit}>
-            {/* 공정 및 종속 검사 항목 선택 */}
-            <div className="form-row">
-              <label className="form-label">공정 / 항목</label>
-              <div className="form-input-group dual">
-                <select
-                  name="processCode"
-                  value={formData.processCode}
-                  onChange={handleProcessChange}
-                  className="form-select"
-                >
-                  <option value="원료 칭량">① 원료 칭량</option>
-                  <option value="가열/혼합">② 가열/혼합</option>
-                  <option value="냉각">③ 냉각</option>
-                  <option value="벌크 검사">④ 벌크 검사</option>
-                  <option value="최종 포장 검사">⑤ 최종 포장 검사</option>
-                </select>
-
-                <select
-                  name="sensorName"
-                  value={formData.sensorName}
-                  onChange={handleChange}
-                  className="form-select"
-                >
-                  {(SENSOR_MAP[formData.processCode] || []).map((sensor) => (
-                    <option key={sensor.value} value={sensor.value}>
-                      {sensor.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* 주의 기준값 (Warning Min / Max) */}
-            <div className="form-row">
-              <label className="form-label">주의 기준값</label>
-              <div className="form-input-group column">
-                {/* 1번째 줄: 최소값 */}
-                <div className="sub-input-row">
-                  <span className="sub-label">최소값</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    name="warningMin"
-                    value={formData.warningMin}
-                    onChange={handleChange}
-                    className="form-input num-input"
-                    required
-                  />
-                </div>
-                {/* 2번째 줄: 최대값 */}
-                <div className="sub-input-row">
-                  <span className="sub-label">최대값</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    name="warningMax"
-                    value={formData.warningMax}
-                    onChange={handleChange}
-                    className="form-input num-input"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 이상 기준값 (Critical Min / Max) */}
-            <div className="form-row">
-              <label className="form-label">이상 기준값</label>
-              <div className="form-input-group column">
-                {/* 1번째 줄: 최소값 */}
-                <div className="sub-input-row">
-                  <span className="sub-label">최소값</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    name="criticalMin"
-                    value={formData.criticalMin}
-                    onChange={handleChange}
-                    className="form-input num-input"
-                    required
-                  />
-                </div>
-                {/* 2번째 줄: 최대값 */}
-                <div className="sub-input-row">
-                  <span className="sub-label">최대값</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    name="criticalMax"
-                    value={formData.criticalMax}
-                    onChange={handleChange}
-                    className="form-input num-input"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 지속(초) */}
-            <div className="form-row">
-              <label className="form-label">지속(초)</label>
-              <div className="form-input-group">
-                <input
-                  type="number"
-                  name="durationSeconds"
-                  value={formData.durationSeconds}
-                  onChange={handleChange}
-                  className="form-input num-input"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* 저장 버튼 */}
-            <div className="form-row footer-row end-align">
-              <button type="submit" className="save-btn">
-                개정판 저장
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* 2. 우측 상단: 현재 실시간 적용 규칙 현황 카드 */}
-        <div className="system-card">
-          <div className="card-header simple">
-            <h3>현재 실시간 적용 규칙 현황</h3>
-          </div>
-          <div className="card-body">
-            <table className="system-table">
-              <thead>
-                <tr>
-                  <th>공정</th>
-                  <th>검사항목</th>
-                  <th>주의 범위</th>
-                  <th>이상 범위</th>
-                  <th>지속</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeRules.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="empty-cell">
-                      {loading ? "데이터 로딩 중..." : "적용 중인 활성 규칙이 없습니다."}
-                    </td>
-                  </tr>
-                ) : (
-                  activeRules.map((item) => (
-                    <tr key={item.ruleId}>
-                      <td>{item.processCode}</td>
-                      <td>{item.sensorName}</td>
-                      <td>
-                        {item.warningMin != null && item.warningMax != null
-                          ? `${item.warningMin} ~ ${item.warningMax}`
-                          : "-"}
-                      </td>
-                      <td>
-                        {item.criticalMin != null && item.criticalMax != null
-                          ? `${item.criticalMin} ~ ${item.criticalMax}`
-                          : "-"}
-                      </td>
-                      <td>{item.durationSeconds}초</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+  const table = (items, editable) => <div className="rule-table-scroll"><table className="system-table">
+    <thead><tr><th>ID</th><th>공정 / 이상 유형</th><th>검사항목 / 조건</th><th>주의 범위</th><th>심각 기준 범위</th><th>지속</th><th>사용 여부</th>{editable && <th>수정</th>}</tr></thead>
+    <tbody>{items.length === 0 ? <tr><td colSpan={editable ? 8 : 7} className="empty-cell">{loading ? "불러오는 중…" : "등록된 규칙이 없습니다."}</td></tr> : items.map(rule => <tr key={rule.ruleId}>
+      <td>{rule.ruleId}</td><td>{rule.processCode}<br />{rule.anomalyType}</td><td>{rule.sensorName}<br />{rule.conditionType}</td>
+      <td>{range(rule.warningMin, rule.warningMax)}</td><td>{range(rule.criticalMin, rule.criticalMax)}</td><td>{rule.durationSeconds}초</td>
+      <td>{editable ? <label><input type="checkbox" aria-label={rule.anomalyType + " 사용 여부"} checked={Boolean(rule.isActive)} disabled={saving || loading} onChange={() => toggle(rule.ruleId)} /> {rule.isActive ? "사용 중" : "비활성"}</label> : "사용 중"}</td>
+      {editable && <td><button type="button" disabled={saving || loading} onClick={() => edit(rule)}>수정</button></td>}
+    </tr>)}</tbody>
+  </table></div>;
+  return <div className="system-page">
+    {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
+    <div className="system-grid">
+      <div className="system-card"><div className="card-header"><h3>{editingId === null ? "이상 규칙 등록" : "이상 규칙 수정 (#" + editingId + ")"}</h3></div>
+        <form className="card-body" onSubmit={submit}>
+          <fieldset disabled={saving} className="rule-fields">
+          <label className="form-row">공정<select className="form-select" name="processCode" value={form.processCode} onChange={e => selectType(e.target.value, optionsFor(e.target.value)[0]?.anomalyType)}>{[...new Set([...processes, form.processCode])].map(p => <option key={p}>{p}</option>)}</select></label>
+          <label className="form-row">이상 유형<select className="form-select" name="anomalyType" value={form.anomalyType} required onChange={e => selectType(form.processCode, e.target.value)}>{optionsFor(form.processCode).map(option => <option key={option.anomalyType} value={option.anomalyType}>{option.anomalyType}</option>)}</select></label>
+          <label className="form-row">검사항목 코드<input className="form-input" value={form.sensorName} readOnly /></label>
+          <label className="form-row">조건 유형<input className="form-input" value={form.conditionType} readOnly /></label>
+          {[["warningMin", "주의 하한"], ["warningMax", "주의 상한"], ["criticalMin", "심각 하한"], ["criticalMax", "심각 상한"]].map(([name, label]) => <label className="form-row" key={name}>{label}<input className="form-input" type="number" step="0.001" name={name} value={form[name]} onChange={change} /></label>)}
+          <p>적용하지 않는 하한·상한은 비워 두세요. 기준값은 소수점 3자리까지 입력할 수 있습니다.</p>
+          <label className="form-row">지속시간(초)<input className="form-input" type="number" min="0" max="2147483647" step="1" required name="durationSeconds" value={form.durationSeconds} onChange={change} /></label>
+          <label className="form-row"><input type="checkbox" name="isActive" checked={form.isActive} onChange={change} /> 사용 여부</label>
+          <p>동일 공정·검사항목·조건의 규칙을 활성화하면 기존 활성 규칙은 비활성화됩니다.</p>
+          <div className="form-row"><button className="save-btn" type="submit">{saving ? "저장 중…" : editingId === null ? "등록" : "수정 저장"}</button><button type="button" onClick={reset}>{editingId === null ? "초기화" : "수정 취소"}</button></div>
+          </fieldset>
+        </form>
       </div>
-
-      {/* 3. 하단: 공정별 이상 감지 규칙 전체 이력 (토글 스위치 제공) */}
-      <div className="system-card mt-16">
-        <div className="card-header simple">
-          <h3>공정별 이상 감지 규칙 전체 이력</h3>
-        </div>
-        <div className="card-body">
-          <table className="system-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>공정코드</th>
-                <th>검사 항목</th>
-                <th>주의 범위</th>
-                <th>이상 범위</th>
-                <th>지속시간</th>
-                <th>상태</th>
-                <th>사용 여부 스위치</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="empty-cell">
-                    {loading ? "데이터를 불러오는 중입니다..." : "등록된 이상치 규칙 이력이 없습니다."}
-                  </td>
-                </tr>
-              ) : (
-                rules.map((rule) => (
-                  <tr key={rule.ruleId} className={!rule.isActive ? "history-row" : ""}>
-                    <td>{rule.ruleId}</td>
-                    <td>{rule.processCode}</td>
-                    <td>{rule.sensorName}</td>
-                    <td>
-                      {rule.warningMin != null && rule.warningMax != null
-                        ? `${rule.warningMin} ~ ${rule.warningMax}`
-                        : "-"}
-                    </td>
-                    <td>
-                      {rule.criticalMin != null && rule.criticalMax != null
-                        ? `${rule.criticalMin} ~ ${rule.criticalMax}`
-                        : "-"}
-                    </td>
-                    <td>{rule.durationSeconds}초</td>
-                    <td>
-                      <span className={`status-badge ${rule.isActive ? "active" : "inactive"}`}>
-                        {rule.isActive ? "사용 중" : "비활성"}
-                      </span>
-                    </td>
-                    <td>
-                      <label className="switch">
-                        <input
-                          type="checkbox"
-                          checked={rule.isActive}
-                          onChange={() => handleToggleStatus(rule.ruleId)}
-                        />
-                        <span className="slider round"></span>
-                      </label>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div className="system-card"><div className="card-header"><h3>활성 규칙 현황</h3></div><div className="card-body">{table(rules.filter(r => r.isActive), false)}</div></div>
     </div>
-  );
+    <div className="system-card mt-16"><div className="card-header"><h3>전체 이상 규칙</h3><button type="button" disabled={loading || saving} onClick={load}>새로고침</button></div><div className="card-body">{table(rules, true)}</div></div>
+  </div>;
 }
