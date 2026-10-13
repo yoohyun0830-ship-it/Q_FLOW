@@ -323,4 +323,125 @@
     min-height: 70px;
     resize: vertical;
 }
+/* 팝업 위치 및 스크롤 */
 
+.anomaly-popup {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+    width: 380px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* 팝업 제목 및 심각도 배지 */
+
+.anomaly-popup .anomaly-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.anomaly-popup .anomaly-popup-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* 심각도 배지 공통 */
+.anomaly-popup .anomaly-popup-header .anomaly-level {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 48px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+/* 심각 CRITICAL - 빨간색 */
+
+.anomaly-popup.critical {
+    border-top: 5px solid #dc3545;
+}
+
+.anomaly-popup.critical .anomaly-popup-header h3 {
+    color: #dc3545;
+}
+
+.anomaly-popup .anomaly-popup-header .anomaly-level.critical {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.anomaly-popup.critical .anomaly-value-card .anomaly-danger-value {
+    color: #dc3545;
+}
+
+/* 주의 WARNING - 주황색 */
+
+.anomaly-popup.warning {
+    border-top: 5px solid #f59e0b;
+}
+
+.anomaly-popup.warning .anomaly-popup-header h3 {
+    color: #d97706;
+}
+
+.anomaly-popup .anomaly-popup-header .anomaly-level.warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+.anomaly-popup.warning .anomaly-value-card .anomaly-danger-value {
+    color: #d97706;
+}
+
+.anomaly-popup.warning .anomaly-message {
+    background-color: #fffbeb;
+    color: #92400e;
+}
+
+.anomaly-popup.warning .anomaly-message p {
+    color: #92400e;
+}
+
+/* 정상 NORMAL - 초록색 */
+
+.anomaly-popup.normal {
+    border-top: 5px solid #22c55e;
+}
+
+.anomaly-popup.normal .anomaly-popup-header h3 {
+    color: #15803d;
+}
+
+.anomaly-popup .anomaly-popup-header .anomaly-level.normal {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.anomaly-popup.normal .anomaly-value-card .anomaly-danger-value {
+    color: #15803d;
+}
+
+.anomaly-popup.normal .anomaly-message {
+    background-color: #f0fdf4;
+    color: #166534;
+}
+
+.anomaly-popup.normal .anomaly-message p {
+    color: #166534;
+}
