@@ -354,6 +354,285 @@ function AlarmDialog({
         </dialog>
     );
 }
+// 벌크 검사 최종 결과 승인 팝업
+function BulkQcApprovalDialog({
+    execution,
+    users,
+    busy,
+    error,
+    onClose,
+    onApprove
+}) {
+    const dialog = useRef(null);
+
+    const [records, setRecords] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+
+    const [qcId, setQcId] = useState(
+        execution.finalQcId || ""
+    );
+    const [userId, setUserId] = useState("");
+
+    const selected = records.find(
+        (item) => item.qc_id === qcId
+    );
+
+    const result = selected?.overall_qc_result;
+    const canApprove = ["합격", "불합격"].includes(result);
+
+    useEffect(() => {
+        const element = dialog.current;
+        element.showModal();
+
+        return () => element.close();
+    }, []);
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        setLoading(true);
+        setLoadError("");
+
+        api.bulkQcResults(
+            execution.execution_id,
+            controller.signal
+        )
+            .then((rows) => {
+                if (!controller.signal.aborted) {
+                    setRecords(rows);
+                }
+            })
+            .catch((failure) => {
+                if (!controller.signal.aborted) {
+                    setLoadError(errorText(failure));
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
+
+        return () => controller.abort();
+    }, [execution.execution_id]);
+
+    return (
+        <dialog
+            ref={dialog}
+            className="pm-dialog"
+            aria-labelledby="pm-qc-title"
+            onCancel={(event) => {
+                event.preventDefault();
+
+                if (!busy) {
+                    onClose();
+                }
+            }}
+        >
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+
+                    if (busy || loading || !canApprove || !userId) {
+                        return;
+                    }
+
+                    const confirmed = window.confirm(
+                        `검사 ${qcId}의 "${result}" 결과를 `
+                        + "최종 검사 결과로 승인할까요?"
+                    );
+
+                    if (confirmed) {
+                        onApprove(qcId, Number(userId));
+                    }
+                }}
+            >
+                <div className="pm-heading">
+                    <h2 id="pm-qc-title">
+                        벌크 검사 결과 승인
+                    </h2>
+
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={onClose}
+                        aria-label="닫기"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <p className="pm-muted">
+                    LOT: {execution.batchId}
+                    <br />
+                    벌크 검사 실행번호: {execution.execution_id}
+                    <br />
+                    현재 승인된 검사: {execution.finalQcId || "없음"}
+                </p>
+
+                {loading && (
+                    <p role="status">검사 결과를 조회하고 있습니다…</p>
+                )}
+
+                {loadError && (
+                    <p className="pm-error" role="alert">
+                        {loadError}
+                    </p>
+                )}
+
+                {!loading && !loadError && records.length === 0 && (
+                    <p className="pm-error">
+                        이 실행번호에 연결된 검사 결과가 없습니다.
+                        검사 결과 등록 시 공정 실행번호가 연결되어
+                        있는지 확인해 주세요.
+                    </p>
+                )}
+
+                <label className="pm-field">
+                    최종 승인할 검사 결과
+
+                    <select
+                        autoFocus
+                        required
+                        value={qcId}
+                        disabled={busy || loading || Boolean(loadError)}
+                        onChange={(event) => setQcId(event.target.value)}
+                    >
+                        <option value="">검사 결과를 선택하세요</option>
+
+                        {records.map((item) => (
+                            <option
+                                key={item.qc_id}
+                                value={item.qc_id}
+                            >
+                                {item.qc_id}
+                                {" · "}
+                                {item.overall_qc_result || "미판정"}
+                                {" · "}
+                                {dateText(item.sample_time)}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                {selected && (
+                    <div className="pm-alarm-info">
+                        <dl>
+                            <dt>검사번호</dt>
+                            <dd>{selected.qc_id}</dd>
+
+                            <dt>검사시간</dt>
+                            <dd>{dateText(selected.sample_time)}</dd>
+
+                            <dt>측정 pH</dt>
+                            <dd>{numberText(selected.ph_measured)}</dd>
+
+                            <dt>측정 점도</dt>
+                            <dd>{numberText(selected.viscosity_measured)}</dd>
+
+                            <dt>측정 비중</dt>
+                            <dd>{numberText(selected.specific_gravity)}</dd>
+
+                            <dt>외관</dt>
+                            <dd>{selected.appearance_code || "-"}</dd>
+
+                            <dt>종합 결과</dt>
+                            <dd>
+                                <span
+                                    className={
+                                        "pm-badge "
+                                        + (result === "합격"
+                                            ? "pm-green"
+                                            : result === "불합격"
+                                                ? "pm-red"
+                                                : "pm-gray")
+                                    }
+                                >
+                                    {result || "미판정"}
+                                </span>
+                            </dd>
+
+                            <dt>검사 비고</dt>
+                            <dd>{selected.qc_notes_code || "-"}</dd>
+                        </dl>
+                    </div>
+                )}
+
+                <label className="pm-field">
+                    승인 담당자
+
+                    <select
+                        required
+                        value={userId}
+                        disabled={busy}
+                        onChange={(event) => setUserId(event.target.value)}
+                    >
+                        <option value="">담당자를 선택하세요</option>
+
+                        {users.map((user) => (
+                            <option
+                                key={user.userId}
+                                value={user.userId}
+                            >
+                                {user.userName} ({user.userId})
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                {selected && !canApprove && (
+                    <p className="pm-error">
+                        합격 또는 불합격으로 판정된 검사만 승인할 수 있습니다.
+                    </p>
+                )}
+
+                {result === "불합격" && (
+                    <p className="pm-error">
+                        불합격 결과도 최종 결과로 기록할 수 있지만,
+                        다음 공정으로 진행할 수는 없습니다.
+                    </p>
+                )}
+
+                {error && (
+                    <p className="pm-error" role="alert">
+                        {error}
+                    </p>
+                )}
+
+                <div className="pm-actions">
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={onClose}
+                    >
+                        취소
+                    </button>
+
+                    <button
+                        type="submit"
+                        className="pm-primary"
+                        disabled={
+                            busy
+                            || loading
+                            || Boolean(loadError)
+                            || !canApprove
+                            || !userId
+                        }
+                    >
+                        {busy ? "승인 중…" : "최종 결과 승인"}
+                    </button>
+                </div>
+
+                <p className="pm-muted">
+                    승인은 검사 결과를 확정하는 작업입니다.
+                    승인 후 공정을 종료하거나 진행 재검사를 눌러
+                    다음 공정으로 진행하세요.
+                </p>
+            </form>
+        </dialog>
+    );
+}
 
 export default function Process() {
     // LOT·사용자 선택 목록
@@ -386,6 +665,8 @@ export default function Process() {
     // 알람 팝업
     const [alarm, setAlarm] = useState(null);
     const [dialogError, setDialogError] = useState("");
+    // 승인 팝업에서 처리할 벌크 검사 실행
+    const [qcExecution, setQcExecution] = useState(null);
 
     // 센서 조회
     const [sensorId, setSensorId] = useState("");
@@ -585,6 +866,7 @@ export default function Process() {
 
             if (inDialog) {
                 setAlarm(null);
+                setQcExecution(null);
             }
 
         } catch (failure) {
@@ -975,6 +1257,23 @@ export default function Process() {
                             진행 재검사
                         </button>
                     )}
+                    {latest?.process_code === "벌크 검사"
+                        && ["진행중", "완료"].includes(latest.status)
+                        && lot?.status === "진행중"
+                        && (
+                            <button
+                                type="button"
+                                disabled={blocked}
+                                onClick={() => {
+                                    setDialogError("");
+                                    setQcExecution(latest);
+                                }}
+                            >
+                                {latest.finalQcId
+                                    ? "최종 검사 승인 확인·변경"
+                                    : "검사 결과 승인"}
+                            </button>
+                        )}
 
                     {latest?.process_code === "벌크 검사" && (
                         <Link to="/quality">
@@ -1258,6 +1557,29 @@ export default function Process() {
                     }}
                 />
             )}
+                        {qcExecution && (
+                <BulkQcApprovalDialog
+                    key={qcExecution.execution_id}
+                    execution={qcExecution}
+                    users={users}
+                    busy={busy}
+                    error={dialogError}
+                    onClose={() => setQcExecution(null)}
+                    onApprove={(qcId, userId) => {
+                        mutate(
+                            () => api.approveBulkQc(
+                                qcExecution.execution_id,
+                                qcId,
+                                userId
+                            ),
+                            "최종 검사 결과를 승인했습니다. "
+                            + "공정이 진행중이면 공정 종료를, "
+                            + "이미 종료됐다면 진행 재검사를 눌러 주세요.",
+                            true
+                        );
+                    }}
+                />
+                )}
         </div>
     );
 }

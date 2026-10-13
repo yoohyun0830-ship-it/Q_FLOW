@@ -997,6 +997,32 @@ export async function loadLot(batchId, signal) {
 
 // 공정 모니터링 화면에서 사용하는 API
 export const processMonitorApi = {
+        // 현재 벌크 검사 실행에 연결된 검사 결과
+    async bulkQcResults(executionId, signal) {
+        const response = await api.get(
+            `/mask/bulk-qc/executions/${executionId}`,
+            { signal }
+        );
+
+        if (!Array.isArray(response.data)) {
+            throw new Error("검사 결과 목록의 응답 형식을 확인해 주세요.");
+        }
+
+        return response.data;
+    },
+
+    // 선택한 검사 결과를 최종 결과로 승인
+    async approveBulkQc(executionId, qcId, userId) {
+        const response = await api.patch(
+            `/mask/process-executions/${executionId}/qc-approval`,
+            {
+                qcId,
+                userId
+            }
+        );
+
+        return response.data;
+    },
 
     // 최근 LOT 목록
     async lots(signal) {
