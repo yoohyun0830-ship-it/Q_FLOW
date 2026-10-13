@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import AnomalyPopup from "./AnomalyPopup";
 
 export default function MainLayout() {
     // 사이드바 접힘/펼침 상태 (false: 펼침, true: 접힘)
@@ -25,6 +26,8 @@ export default function MainLayout() {
                     <Outlet />
                 </main>
             </div>
+            {/* 이상치 팝업 추가 */}
+            <AnomalyPopup />
         </div>
     );
 }
