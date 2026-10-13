@@ -76,3 +76,251 @@
     color: #ffffff !important;
     border: none !important;
 }
+
+/* 조치 유형 라디오 버튼 목록 */
+.anomaly-popup .anomaly-action-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+/* 각 조치 유형 */
+.anomaly-popup .anomaly-radio-option {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+/* 라디오 버튼 */
+.anomaly-popup .anomaly-radio-option input[type="radio"] {
+    position: static;
+    display: inline-block;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin: 0;
+    padding: 0;
+    accent-color: #dc3545;
+    cursor: pointer;
+}
+
+/* 라디오 버튼 텍스트 */
+.anomaly-popup .anomaly-radio-option span {
+    flex: 1;
+    color: #374151;
+}
+
+/* 입력 항목 세로 정렬 */
+.anomaly-popup .anomaly-form-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    width: 100%;
+}
+
+/* 구역 제목 */
+.anomaly-popup .anomaly-section-title {
+    margin: 18px 0 10px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* 기본정보 정렬 */
+.anomaly-popup .anomaly-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+}
+
+.anomaly-popup .anomaly-info-row span {
+    flex-shrink: 0;
+    color: #6b7280;
+    font-weight: 400;
+}
+
+.anomaly-popup .anomaly-info-row strong {
+    color: #111827;
+    font-weight: 600;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* 측정값 카드 2열 */
+.anomaly-popup .anomaly-value-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.anomaly-popup .anomaly-value-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.anomaly-popup .anomaly-value-card span {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.anomaly-popup .anomaly-value-card strong {
+    font-size: 19px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.anomaly-popup .anomaly-value-card .anomaly-danger-value {
+    color: #dc3545;
+}
+
+/* 이상 메시지 */
+.anomaly-popup .anomaly-message {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fff1f2;
+    color: #be123c;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.anomaly-popup .anomaly-message strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.anomaly-popup .anomaly-message p {
+    margin: 0;
+    color: #be123c;
+    font-size: 13px;
+}
+
+/* 관리자 조치 섹션 */
+.anomaly-popup .anomaly-action-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.anomaly-popup .anomaly-action-form h4 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* 입력 필드 */
+.anomaly-popup .anomaly-form-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+}
+
+.anomaly-popup .anomaly-form-field > label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.anomaly-popup .anomaly-form-field > input,
+.anomaly-popup .anomaly-form-field > textarea {
+    display: block;
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.anomaly-popup .anomaly-form-field > input:focus,
+.anomaly-popup .anomaly-form-field > textarea:focus {
+    outline: none;
+    border-color: #c7444d;
+    box-shadow: 0 0 0 2px rgba(199,68,77,0.12);
+}
+
+/* 조치 유형 2열 카드 */
+.anomaly-popup .anomaly-action-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.anomaly-popup label.anomaly-action-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-weight: 400;
+    color: #374151;
+}
+
+.anomaly-popup label.anomaly-action-card.selected {
+    border-color: #c7444d;
+    background: #fff1f2;
+    color: #b91c1c;
+}
+
+.anomaly-popup .anomaly-action-card input[type="radio"] {
+    position: static;
+    display: block;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin: 0;
+    padding: 0;
+    accent-color: #c7444d;
+}
+
+.anomaly-popup .anomaly-action-card span {
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* 입력창 크기 */
+.anomaly-popup .anomaly-form-field textarea {
+    min-height: 70px;
+    resize: vertical;
+}
+
