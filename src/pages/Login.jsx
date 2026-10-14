@@ -18,7 +18,7 @@ export default function Login() {
             return;
         }
         try {
-            // 백엔드의 /mask/users/login API로 요청 전송 (숫자형으로 변환)
+            // Controller의 Map<String, String> 형식에 맞춰 사원 번호를 문자열로 전송
             const response = await fetch("http://localhost:8080/mask/users/login", {
                 method: "POST",
                 credentials: "include",
@@ -26,7 +26,7 @@ export default function Login() {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    userId: employeeId,
+                    userId: String(employeeId),
                     password: password,
                 }),
             });

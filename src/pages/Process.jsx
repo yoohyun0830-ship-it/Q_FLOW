@@ -626,8 +626,8 @@ function BulkQcApprovalDialog({
 
                 <p className="pm-muted">
                     승인은 검사 결과를 확정하는 작업입니다.
-                    승인 후 공정을 종료하거나 진행 재검사를 눌러
-                    다음 공정으로 진행하세요.
+                    공정은 데이터 생성 후 자동 종료됩니다.
+                    승인 및 알람 처리 조건을 충족하면 다음 공정으로 진행합니다.
                 </p>
             </form>
         </dialog>
@@ -1258,30 +1258,6 @@ export default function Process() {
                         </button>
                     )}
 
-                    {running.length === 1 && (
-                        <button
-                            className="pm-primary"
-                            disabled={blocked}
-                            onClick={() => {
-                                const confirmed = window.confirm(
-                                    `${running[0].process_code} 공정을 종료할까요? `
-                                    + "조건 충족 시 다음 공정이 시작됩니다."
-                                );
-
-                                if (confirmed) {
-                                    mutate(
-                                        () => api.finish(
-                                            running[0].execution_id
-                                        ),
-                                        "공정을 종료했습니다."
-                                    );
-                                }
-                            }}
-                        >
-                            공정 종료
-                        </button>
-                    )}
-
                     {canResume && (
                         <button
                             disabled={blocked}
@@ -1613,8 +1589,7 @@ export default function Process() {
                                 userId
                             ),
                             "최종 검사 결과를 승인했습니다. "
-                            + "공정이 진행중이면 공정 종료를, "
-                            + "이미 종료됐다면 진행 재검사를 눌러 주세요.",
+                            + "알람 처리 조건까지 충족하면 다음 공정으로 자동 진행합니다.",
                             true
                         );
                     }}
