@@ -997,6 +997,14 @@ export async function loadLot(batchId, signal) {
 
 // 공정 모니터링 화면에서 사용하는 API
 export const processMonitorApi = {
+    // 생성기가 관리하는 현재 대기·진행 LOT 정보(메모리 상태 조회).
+    async simulationStatus(signal) {
+        const { data } = await api.get("/mask/simulation/status", { signal });
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+            throw new Error("생성기 상태 응답을 확인해 주세요.");
+        }
+        return data;
+    },
         // 현재 벌크 검사 실행에 연결된 검사 결과
     async bulkQcResults(executionId, signal) {
         const response = await api.get(

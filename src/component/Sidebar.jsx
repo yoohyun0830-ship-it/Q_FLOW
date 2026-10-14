@@ -121,8 +121,8 @@ export default function Sidebar({ isCollapsed }) {
                     )}
                 </div>
 
-                {/* [권한 제어] 전체관리자일 때만 시스템 관리 메뉴 노출 -> 노출 제어할 메뉴에 추가*/}
-                {userRole === "전체관리자" && (
+                {/* 최고관리자에게 시스템 관리 메뉴 표시 */}
+                {userRole === "최고관리자" && (
                     <NavLink to="/system" title="시스템 관리">
                         <Cog className="menu-icon" />
                         {!isCollapsed && <span>시스템 관리</span>}

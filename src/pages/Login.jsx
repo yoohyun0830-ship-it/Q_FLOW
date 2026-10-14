@@ -12,15 +12,21 @@ export default function Login() {
 
     // 로그인 버튼 클릭 시 실행
     const handleLogin = async () => {
+        const employeeId = Number(userId);
+        if (!Number.isInteger(employeeId) || employeeId < 1 || employeeId > 2147483647 || !password) {
+            alert("올바른 사원 번호와 비밀번호를 입력해 주세요.");
+            return;
+        }
         try {
             // 백엔드의 /mask/users/login API로 요청 전송 (숫자형으로 변환)
             const response = await fetch("http://localhost:8080/mask/users/login", {
                 method: "POST",
+                credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    userId: Number(userId),
+                    userId: employeeId,
                     password: password,
                 }),
             });

@@ -443,6 +443,19 @@
 }
 
 /* 반응형 */
+.pm-current-lot {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pm-current-lot code {
+    font-size: 13px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 1250px) {
     .pm-flow {
         grid-template-columns: repeat(3, minmax(0, 1fr));
