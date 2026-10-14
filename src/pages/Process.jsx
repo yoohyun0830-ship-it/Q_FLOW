@@ -638,6 +638,29 @@ export default function Process() {
     // LOT·사용자 선택 목록
     const [lots, setLots] = useState([]);
     const [users, setUsers] = useState([]);
+    const [simulation, setSimulation] = useState(null);
+    const [simulationError, setSimulationError] = useState("");
+
+    // 입력·선택값을 변경하지 않고 현재 생성 LOT 안내만 2초 간격으로 갱신한다.
+    useEffect(() => {
+        const controller = new AbortController();
+        let timer;
+        async function refreshSimulation() {
+            try {
+                const status = await api.simulationStatus(controller.signal);
+                if (!controller.signal.aborted) {
+                    setSimulation(status);
+                    setSimulationError("");
+                }
+            } catch (failure) {
+                if (!controller.signal.aborted) setSimulationError(errorText(failure));
+            } finally {
+                if (!controller.signal.aborted) timer = setTimeout(refreshSimulation, 2000);
+            }
+        }
+        refreshSimulation();
+        return () => { controller.abort(); clearTimeout(timer); };
+    }, []);
 
     // 입력 중인 LOT와 실제 조회한 LOT
     const [input, setInput] = useState("");
@@ -1034,6 +1057,23 @@ export default function Process() {
             )}
 
             {/* LOT 선택 */}
+            <div className="pm-card pm-current-lot" aria-live="polite">
+                <span>현재 생산 LOT</span>
+                {simulationError ? (
+                    <span className="pm-error">조회 실패: {simulationError}</span>
+                ) : simulation?.batchId ? (
+                    <>
+                        <code>{simulation.batchId}</code>
+                        <Badge value={simulation.pendingData?.tableName === "batches"
+                            ? "등록 중" : simulation.executionId == null ? "대기" : "진행중"} />
+                        {simulation.waitingReason && <span className="pm-muted">{simulation.waitingReason}</span>}
+                        {simulation.lastError && <span className="pm-error">{simulation.lastError}</span>}
+                    </>
+                ) : (
+                    <span className="pm-muted">{simulation == null ? "LOT 확인 중…"
+                        : simulation.completedBatchId ? "생산 완료 · 다음 대기 LOT 준비 중" : "대기 LOT 준비 중"}</span>
+                )}
+            </div>
             <form
                 className="pm-card pm-selector"
                 onSubmit={(event) => {
