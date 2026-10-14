@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/login.css";
+import logo from "./img/qflow.png";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -55,25 +56,25 @@ export default function Login() {
 
     return (
         <div className="login_box">
-            <h1>Q-FLOW</h1>
-            <p>실시간 제조공정 모니터링 및 품질관리 시스템</p>
+            <img className="logo" src={logo}></img>
+            <div className="login_box_comment">실시간 제조공정 모니터링 및 품질관리 시스템</div>
 
-            <div>
+            <div className="login_input_box">
                 <input
                     type="number"
                     placeholder="사원 번호"
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
                 />
-
+                <br/>
                 <input
                     type="password"
                     placeholder="비밀번호"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                 />
-
-                <button onClick={handleLogin}>로그인</button>
+                <br/>
+                <button className="login_button" onClick={handleLogin}>로그인</button>
             </div>
         </div>
     );
