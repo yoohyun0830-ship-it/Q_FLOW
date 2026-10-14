@@ -351,6 +351,25 @@ export default function AnomalyPopup() {
             </div>
 
             {/* 심각 단계에서만 관리자 조치 입력 */}
+            {/* 주의 / 심각 공통 관리자 입력 */}
+            {anomaly.actionStatus === "미확인" &&
+                anomaly.level === "WARNING" && (
+                    <div className="anomaly-action-form">
+                        <div className="anomaly-form-field">
+                            <label>담당 관리자 (사원번호) *</label>
+                            <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={manager}
+                                onChange={(e) =>
+                                    updateActionForm("manager", e.target.value)
+                                }
+                                placeholder="사원번호를 입력하세요"
+                            />
+                        </div>
+                    </div>
+                )}
             {anomaly.level === "CRITICAL" && (
                 <div className="anomaly-action-form">
 
