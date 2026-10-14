@@ -15,13 +15,28 @@ export default function AnomalyPopup() {
                     "http://localhost:8080/mask/anomaly-events",
                     {
                         params: {
-                            actionStatus: "미확인",
-                            page: 0
+                            page: 0,
+                            size: 100
                         }
                     }
                 );
 
-                const dbAnomalies = response.data.content.map((item) => ({
+                console.log("필터 적용 전 이상 데이터:", response.data.content);
+                console.log("첫 번째 이상 데이터:", response.data.content[0]);
+                console.table(
+                    response.data.content.map((item) => ({
+                        anomalyId: item.anomalyId,
+                        sourceType: item.sourceType,
+                        actionStatus: item.actionStatus,
+                        severity: item.severity
+                    }))
+                );
+                const dbAnomalies = response.data.content
+                .filter((item) =>
+                    item.sourceType !== "CSV 가져오기" &&
+                    ["미확인", "확인됨"].includes(item.actionStatus)
+                )
+                .map((item) => ({
                 id: item.anomalyId,
                 batchId: item.batchId ?? "-",
                 processName: item.processCode ?? "-",
@@ -138,6 +153,84 @@ export default function AnomalyPopup() {
             : anomaly?.level === "WARNING"
             ? "주의"
             : "정상";
+    
+    const handleAcknowledge = async () => {
+    if (!anomaly) return;
+
+    if (!/^[1-9]\d*$/.test(manager.trim())) {
+        alert("올바른 사원번호를 입력해 주세요.");
+        return;
+    }
+
+    try {
+        const response = await axios.patch(
+            `http://localhost:8080/mask/anomaly-events/${anomaly.id}/confirm`,
+            {
+                userId: Number(manager)
+            }
+        );
+
+        console.log("관리자 확인 성공:", response.data);
+        alert("이상치 확인 처리가 완료되었습니다.");
+
+    } catch (error) {
+        console.error("관리자 확인 실패:", error);
+        alert("확인 처리에 실패했습니다.");
+    }
+};
+    // 관리자 조치 완료 - 실제 DB 저장
+    const handleCompleteAction = async () => {
+        if (!anomaly) return;
+
+        // 확인된 심각 이상치만 조치 가능
+        if (anomaly.level !== "CRITICAL" || anomaly.actionStatus !== "확인됨") {
+            alert("관리자 확인이 완료된 심각 이상치만 조치할 수 있습니다.");
+            return;
+        }
+
+        // 사원번호 검사
+        if (!/^[1-9]\d*$/.test(manager.trim())) {
+            alert("올바른 사원번호를 입력해 주세요.");
+            return;
+        }
+
+        // 조치내용 검사
+        if (!notes.trim()) {
+            alert("조치내용을 입력해 주세요.");
+            return;
+        }
+
+        // 기타 선택 시 비고 검사
+        if (actionType === "OTHER" && !actionDetail.trim()) {
+            alert("기타 조치에 대한 비고를 입력해 주세요.");
+            return;
+        }
+
+        try {
+            const response = await axios.patch(
+                `http://localhost:8080/mask/anomaly-events/${anomaly.id}/action`,
+                {
+                    userId: Number(manager),
+                    actionType: actionType,
+                    actionNote: notes.trim(),
+                    actionRemarks:
+                        actionType === "OTHER" ? actionDetail.trim() : null
+                }
+            );
+
+            console.log("관리자 조치 완료:", response.data);
+            alert("관리자 조치내역이 DB에 저장되었습니다.");
+
+            // 성공한 이상치를 현재 팝업 목록에서 제거
+            setAnomalies((prev) =>
+                prev.filter((item) => item.id !== anomaly.id)
+            );
+
+        } catch (error) {
+            console.error("관리자 조치 실패:", error);
+            alert(error.response?.data?.message || "조치 완료 처리에 실패했습니다.");
+        }
+    };
 
     // 확인 및 조치 완료
     const handleConfirm = () => {
@@ -363,16 +456,24 @@ export default function AnomalyPopup() {
 
                 </div>
             )}
-                    {/* 확인 및 조치 완료 버튼 */}
-                    <button
-                        type="button"
-                        className="anomaly-confirm-btn"
-                        onClick={handleConfirm}
-                    >
-                        {anomaly.level === "CRITICAL"
-                            ? "조치 완료"
-                            : "확인 처리"}
-                    </button>
+                    {anomaly.actionStatus === "미확인" ? (
+                        <button
+                            type="button"
+                            className="anomaly-confirm-btn"
+                            onClick={handleAcknowledge}
+                        >
+                            관리자 확인
+                        </button>
+                    ) : anomaly.actionStatus === "확인됨" &&
+                    anomaly.level === "CRITICAL" ? (
+                        <button
+                            type="button"
+                            className="anomaly-confirm-btn"
+                            onClick={handleCompleteAction}
+                        >
+                            조치 완료
+                        </button>
+                    ) : null}
 
                     {/* 다른 이상치 알림 목록 */}
                     {anomalies.length > 1 && (
