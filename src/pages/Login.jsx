@@ -5,21 +5,21 @@ import "../css/login.css";
 export default function Login() {
     const navigate = useNavigate();
 
-    // 아이디와 비밀번호를 담을 state 선언
-    const [userName, setUserName] = useState("");
+    // 사용자 번호(userId)와 비밀번호를 담을 state 선언
+    const [userId, setUserId] = useState("");
     const [password, setPassword] = useState("");
 
     // 로그인 버튼 클릭 시 실행
     const handleLogin = async () => {
         try {
-            // 백엔드의 /mask/users/login API로 요청 전송
+            // 백엔드의 /mask/users/login API로 요청 전송 (숫자형으로 변환)
             const response = await fetch("http://localhost:8080/mask/users/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    userName: userName,
+                    userId: Number(userId),
                     password: password,
                 }),
             });
@@ -29,7 +29,8 @@ export default function Login() {
                 const data = await response.json();
                 console.log("로그인 성공:", data);
                 
-                // localStorage에 유저 이름과 권한 저장 (Header 연동용)
+                // localStorage에 유저 정보 저장 (MainLayout 검문소 연동용)
+                localStorage.setItem("userId", data.userId);
                 localStorage.setItem("userName", data.userName);
                 localStorage.setItem("userRole", data.role);
                 
@@ -53,10 +54,10 @@ export default function Login() {
 
             <div>
                 <input
-                    type="text"
-                    placeholder="아이디 (예: 김민준)"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
+                    type="number"
+                    placeholder="사원 번호"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
                 />
 
                 <input
