@@ -445,3 +445,76 @@
 .anomaly-popup.normal .anomaly-message p {
     color: #166534;
 }
+/* ========================================
+   여러 이상치 알림 목록
+======================================== */
+
+/* 기존 팝업 아래에 표시되는 알림 목록 */
+.anomaly-notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* 접힌 알림 카드 */
+.anomaly-popup .anomaly-notification-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #374151;
+    cursor: pointer;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+/* 알림 카드 마우스 오버 */
+.anomaly-popup .anomaly-notification-card:hover {
+    background: #f1f5f9;
+}
+
+/* 알림 제목 및 정보 */
+.anomaly-notification-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.anomaly-notification-info strong {
+    font-size: 13px;
+    color: #111827;
+}
+
+.anomaly-notification-info span {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+/* 알림 심각도 */
+.anomaly-notification-level {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.anomaly-notification-level.critical {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.anomaly-notification-level.warning {
+    background: #fef3c7;
+    color: #92400e;
+}

@@ -1,5 +1,6 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import "../css/anomalyPopup.css";
 
 export default function AnomalyPopup() {
@@ -7,24 +8,113 @@ export default function AnomalyPopup() {
     // 팝업 표시 상태
     const [isOpen, setIsOpen] = useState(true);
 
-    // 테스트용 이상 데이터
-    const anomaly = {
-        batchId: "LOT20230112-003",
-        processName: "가열/혼합",
-        itemName: "탱크 온도",
-        measuredValue: 66.0,
-        unit: "°C",
-        normalRange: "61 ~ 64",
-        criticalRange: "60°C 미만 / 65°C 초과",
-        level: "CRITICAL",
-        message: "탱크 온도가 심각 상한 65°C를 초과했습니다."
+        useEffect(() => {
+        const fetchAnomalies = async () => {
+            try {
+                const response = await axios.get(
+                    "http://localhost:8080/mask/anomaly-events",
+                    {
+                        params: {
+                            actionStatus: "미확인",
+                            page: 0
+                        }
+                    }
+                );
+
+                const dbAnomalies = response.data.content.map((item) => ({
+                id: item.anomalyId,
+                batchId: item.batchId ?? "-",
+                processName: item.processCode ?? "-",
+                itemName: item.sensorName ?? item.anomalyType ?? "이상 감지",
+
+                measuredValue: item.measuredValue ?? "-",
+                unit: "",
+                normalRange: "정보 없음",
+                criticalRange: "정보 없음",
+
+                level: item.severity === "심각" ? "CRITICAL" : "WARNING",
+                message: item.alarmMessage ?? "이상치가 감지되었습니다.",
+
+                actionStatus: item.actionStatus,
+                executionId: item.executionId
+            }));
+
+            console.log("팝업용 변환 데이터:", dbAnomalies);
+            // DB에서 조회한 이상치 목록 저장
+            setAnomalies(dbAnomalies);
+
+            // 현재 선택된 이상치가 있으면 유지, 없으면 첫 번째 선택
+            setSelectedAnomalyId((prev) => {
+                if (dbAnomalies.length === 0) return null;
+
+                const stillExists = dbAnomalies.some(
+                    (item) => item.id === prev
+                );
+
+                return stillExists ? prev : dbAnomalies[0].id;
+            });
+                        } catch (error) {
+                console.error("이상치 조회 실패:", error);
+            }
+        };
+
+            // 화면 진입 시 즉시 조회
+            fetchAnomalies();
+
+            // 5초마다 새로운 이상치 확인
+            const intervalId = setInterval(() => {
+                fetchAnomalies();
+            }, 5000);
+
+            // 컴포넌트 종료 시 반복 조회 중지
+            return () => {
+                clearInterval(intervalId);
+            };
+        }, []);
+
+    // DB에서 조회한 이상치 목록
+    const [anomalies, setAnomalies] = useState([]);
+
+    // 현재 상세정보를 보여줄 알림 ID
+    const [selectedAnomalyId, setSelectedAnomalyId] = useState(null);
+
+    // 선택한 알림 데이터
+    const anomaly = anomalies.find(
+        (item) => item.id === selectedAnomalyId
+    );
+
+    // 이상치별 관리자 조치 입력값 저장
+    const [actionForms, setActionForms] = useState({});
+
+    // 현재 선택된 이상치의 입력값
+    const currentForm = actionForms[selectedAnomalyId] || {
+        manager: "",
+        actionType: "PROCESS_ADJUST",
+        actionDetail: "",
+        notes: ""
     };
 
-    // 관리자 조치 입력
-    const [manager, setManager] = useState("");
-    const [actionType, setActionType] = useState("PROCESS_ADJUST");
-    const [actionDetail, setActionDetail] = useState("");
-    const [notes, setNotes] = useState("");
+    const {
+        manager,
+        actionType,
+        actionDetail,
+        notes
+    } = currentForm;
+
+    // 현재 이상치의 입력값만 변경
+    const updateActionForm = (field, value) => {
+        setActionForms((prev) => ({
+            ...prev,
+            [selectedAnomalyId]: {
+                manager: "",
+                actionType: "PROCESS_ADJUST",
+                actionDetail: "",
+                notes: "",
+                ...prev[selectedAnomalyId],
+                [field]: value
+            }
+        }));
+    };
 
     // 조치상태 선택 목록
     const actionOptions = [
@@ -35,18 +125,17 @@ export default function AnomalyPopup() {
         { value: "OTHER", label: "기타" }
     ];
 
-    // 심각도별 스타일
     const severityClass =
-        anomaly.level === "CRITICAL"
+        anomaly?.level === "CRITICAL"
             ? "critical"
-            : anomaly.level === "WARNING"
+            : anomaly?.level === "WARNING"
             ? "warning"
             : "normal";
 
     const severityLabel =
-        anomaly.level === "CRITICAL"
+        anomaly?.level === "CRITICAL"
             ? "심각"
-            : anomaly.level === "WARNING"
+            : anomaly?.level === "WARNING"
             ? "주의"
             : "정상";
 
@@ -92,11 +181,29 @@ export default function AnomalyPopup() {
             });
         }
 
-        // 검증 완료 후 팝업 닫기
-        setIsOpen(false);
+        // 현재 알림만 목록에서 제거
+        const remainingAnomalies = anomalies.filter(
+            (item) => item.id !== selectedAnomalyId
+        );
+
+        setAnomalies(remainingAnomalies);
+
+        // 처리한 알림의 입력값 삭제
+        setActionForms((prev) => {
+            const updated = { ...prev };
+            delete updated[selectedAnomalyId];
+            return updated;
+        });
+
+        // 남은 알림 중 첫 번째 알림 표시
+        if (remainingAnomalies.length > 0) {
+            setSelectedAnomalyId(remainingAnomalies[0].id);
+        } else {
+            setIsOpen(false);
+        }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || !anomaly) return null;
 
     return (
         <div className={`anomaly-popup ${severityClass}`}>
@@ -187,7 +294,7 @@ export default function AnomalyPopup() {
                             step="1"
                             value={manager}
                             onChange={(e) =>
-                                setManager(e.target.value)
+                                updateActionForm("manager", e.target.value)
                             }
                             placeholder="사원번호를 입력하세요"
                         />
@@ -213,7 +320,7 @@ export default function AnomalyPopup() {
                                         value={option.value}
                                         checked={actionType === option.value}
                                         onChange={() =>
-                                            setActionType(option.value)
+                                            updateActionForm("actionType", option.value)
                                         }
                                     />
                                     <span>{option.label}</span>
@@ -230,7 +337,7 @@ export default function AnomalyPopup() {
                             <textarea
                                 value={actionDetail}
                                 onChange={(e) =>
-                                    setActionDetail(e.target.value)
+                                    updateActionForm("actionDetail", e.target.value)
                                 }
                                 placeholder="기타 조치에 대한 내용을 입력하세요."
                                 rows={3}
@@ -246,7 +353,7 @@ export default function AnomalyPopup() {
                         <textarea
                             value={notes}
                             onChange={(e) =>
-                                setNotes(e.target.value)
+                                updateActionForm("notes", e.target.value)
                             }
                             placeholder="실제로 수행한 조치 내용을 상세히 입력하세요."
                             rows={3}
@@ -256,17 +363,56 @@ export default function AnomalyPopup() {
 
                 </div>
             )}
+                    {/* 확인 및 조치 완료 버튼 */}
+                    <button
+                        type="button"
+                        className="anomaly-confirm-btn"
+                        onClick={handleConfirm}
+                    >
+                        {anomaly.level === "CRITICAL"
+                            ? "조치 완료"
+                            : "확인 처리"}
+                    </button>
 
-            {/* 확인 및 조치 완료 버튼 */}
-            <button
-                type="button"
-                className="anomaly-confirm-btn"
-                onClick={handleConfirm}
-            >
-                {anomaly.level === "CRITICAL"
-                    ? "조치 완료"
-                    : "확인 처리"}
-            </button>
+                    {/* 다른 이상치 알림 목록 */}
+                    {anomalies.length > 1 && (
+                        <div className="anomaly-notification-list">
+
+                            {anomalies
+                                .filter((item) => item.id !== selectedAnomalyId)
+                                .map((item) => (
+
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        className="anomaly-notification-card"
+                                        onClick={() => {
+                                            setSelectedAnomalyId(item.id);
+                                        }}
+                                    >
+                                        <div className="anomaly-notification-info">
+                                            <strong>{item.itemName} 이상 감지</strong>
+                                            <span>
+                                                {item.batchId} · {item.processName}
+                                            </span>
+                                        </div>
+
+                                        <span
+                                            className={`anomaly-notification-level ${
+                                                item.level === "CRITICAL"
+                                                    ? "critical"
+                                                    : "warning"
+                                            }`}
+                                        >
+                                            {item.level === "CRITICAL"
+                                                ? "심각"
+                                                : "주의"}
+                                        </span>
+                                    </button>
+
+                                ))}
+                        </div>
+                    )}
 
         </div>
     );
