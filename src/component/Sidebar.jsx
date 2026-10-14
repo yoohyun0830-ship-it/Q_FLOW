@@ -19,6 +19,9 @@ export default function Sidebar({ isCollapsed }) {
     const isQualityMenu = pathname === "/quality" || pathname.startsWith("/quality/");
     const isDataMenu = pathname === "/data" || pathname.startsWith("/data/");
 
+    // 🔐 로그인한 유저의 권한 확인
+    const userRole = localStorage.getItem("userRole");
+
     return (
         <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
 
@@ -118,11 +121,13 @@ export default function Sidebar({ isCollapsed }) {
                     )}
                 </div>
 
-
-                <NavLink to="/system" title="시스템 관리">
-                    <Cog className="menu-icon" />
-                    {!isCollapsed && <span>시스템 관리</span>}
-                </NavLink>
+                {/* [권한 제어] 전체관리자일 때만 시스템 관리 메뉴 노출 -> 노출 제어할 메뉴에 추가*/}
+                {userRole === "전체관리자" && (
+                    <NavLink to="/system" title="시스템 관리">
+                        <Cog className="menu-icon" />
+                        {!isCollapsed && <span>시스템 관리</span>}
+                    </NavLink>
+                )}
 
             </nav>
 
