@@ -42,6 +42,8 @@ export default function SystemPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // 전체 조회 결과는 이력에 사용하고, 활성 규칙 현황에는 사용 중인 규칙만 표시한다.
+  const activeRules = rules.filter(rule => rule.isActive === true);
 
   const load = async () => {
     setLoading(true);
@@ -87,7 +89,7 @@ export default function SystemPage() {
       else await axios.post(API, payload);
       reset();
       const loaded = await load();
-      setMessage(loaded ? "규칙을 저장했습니다." : "저장은 완료했지만 목록을 새로 불러오지 못했습니다.");
+      setMessage(loaded ? (editingId === null ? "규칙을 저장했습니다." : "수정본을 새 이력으로 저장하고 이전 규칙을 비활성화했습니다.") : "저장은 완료했지만 목록을 새로 불러오지 못했습니다.");
     } catch (e) { setError(errorMessage(e)); }
     finally { setSaving(false); }
   };
@@ -98,12 +100,12 @@ export default function SystemPage() {
     finally { setSaving(false); }
   };
   const table = (items, editable) => <div className="rule-table-scroll"><table className="system-table">
-    <thead><tr><th>ID</th><th>공정 / 이상 유형</th><th>검사항목 / 조건</th><th>주의 범위</th><th>심각 기준 범위</th><th>지속</th><th>사용 여부</th>{editable && <th>수정</th>}</tr></thead>
-    <tbody>{items.length === 0 ? <tr><td colSpan={editable ? 8 : 7} className="empty-cell">{loading ? "불러오는 중…" : "등록된 규칙이 없습니다."}</td></tr> : items.map(rule => <tr key={rule.ruleId}>
+    <thead><tr><th>ID</th><th>공정 / 이상 유형</th><th>검사항목 / 조건</th><th>주의 범위</th><th>심각 기준 범위</th><th>지속</th><th>사용 여부</th>{editable && <><th>등록일시</th><th>수정</th></>}</tr></thead>
+    <tbody>{items.length === 0 ? <tr><td colSpan={editable ? 9 : 7} className="empty-cell">{loading ? "불러오는 중…" : "등록된 규칙이 없습니다."}</td></tr> : items.map(rule => <tr key={rule.ruleId}>
       <td>{rule.ruleId}</td><td>{rule.processCode}<br />{rule.anomalyType}</td><td>{rule.sensorName}<br />{rule.conditionType}</td>
       <td>{range(rule.warningMin, rule.warningMax)}</td><td>{range(rule.criticalMin, rule.criticalMax)}</td><td>{rule.durationSeconds}초</td>
       <td>{editable ? <label><input type="checkbox" aria-label={rule.anomalyType + " 사용 여부"} checked={Boolean(rule.isActive)} disabled={saving || loading} onChange={() => toggle(rule.ruleId)} /> {rule.isActive ? "사용 중" : "비활성"}</label> : "사용 중"}</td>
-      {editable && <td><button type="button" disabled={saving || loading} onClick={() => edit(rule)}>수정</button></td>}
+      {editable && <><td>{rule.createdAt?.replace("T", " ") || "-"}</td><td><button type="button" disabled={saving || loading} onClick={() => edit(rule)}>수정</button></td></>}
     </tr>)}</tbody>
   </table></div>;
   return <div className="system-page">
@@ -121,12 +123,13 @@ export default function SystemPage() {
           <label className="form-row">지속시간(초)<input className="form-input" type="number" min="0" max="2147483647" step="1" required name="durationSeconds" value={form.durationSeconds} onChange={change} /></label>
           <label className="form-row"><input type="checkbox" name="isActive" checked={form.isActive} onChange={change} /> 사용 여부</label>
           <p>동일 공정·검사항목·조건의 규칙을 활성화하면 기존 활성 규칙은 비활성화됩니다.</p>
+          {editingId !== null && <p>수정하면 새 ID로 저장되며, 이전 규칙은 비활성 상태로 이력에 남습니다.</p>}
           <div className="form-row"><button className="save-btn" type="submit">{saving ? "저장 중…" : editingId === null ? "등록" : "수정 저장"}</button><button type="button" onClick={reset}>{editingId === null ? "초기화" : "수정 취소"}</button></div>
           </fieldset>
         </form>
       </div>
-      <div className="system-card"><div className="card-header"><h3>활성 규칙 현황</h3></div><div className="card-body">{table(rules.filter(r => r.isActive), false)}</div></div>
+      <div className="system-card"><div className="card-header"><h3>활성 규칙 현황</h3></div><div className="card-body">{table(activeRules, false)}</div></div>
     </div>
-    <div className="system-card mt-16"><div className="card-header"><h3>전체 이상 규칙</h3><button type="button" disabled={loading || saving} onClick={load}>새로고침</button></div><div className="card-body">{table(rules, true)}</div></div>
+    <div className="system-card mt-16"><div className="card-header"><h3>이상감지 규칙 이력 (전체)</h3><button type="button" disabled={loading || saving} onClick={load}>새로고침</button></div><div className="card-body"><p>이전 수정본을 포함한 활성·비활성 규칙을 최신 등록순으로 표시합니다.</p>{table(rules, true)}</div></div>
   </div>;
 }
