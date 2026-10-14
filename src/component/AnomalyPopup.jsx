@@ -11,32 +11,13 @@ export default function AnomalyPopup() {
         useEffect(() => {
         const fetchAnomalies = async () => {
             try {
-                const response = await axios.get(
-                    "http://localhost:8080/mask/anomaly-events",
-                    {
-                        params: {
-                            page: 0,
-                            size: 100
-                        }
-                    }
-                );
+                 const response = await axios.get(
+                "http://localhost:8080/mask/anomaly-events/popup"
+            );
 
-                console.log("필터 적용 전 이상 데이터:", response.data.content);
-                console.log("첫 번째 이상 데이터:", response.data.content[0]);
-                console.table(
-                    response.data.content.map((item) => ({
-                        anomalyId: item.anomalyId,
-                        sourceType: item.sourceType,
-                        actionStatus: item.actionStatus,
-                        severity: item.severity
-                    }))
-                );
-                const dbAnomalies = response.data.content
-                .filter((item) =>
-                    item.sourceType !== "CSV 가져오기" &&
-                    ["미확인", "확인됨"].includes(item.actionStatus)
-                )
-                .map((item) => ({
+            console.log("팝업 API 응답:", response.data);
+
+            const dbAnomalies = response.data.map((item) => ({
                 id: item.anomalyId,
                 batchId: item.batchId ?? "-",
                 processName: item.processCode ?? "-",
