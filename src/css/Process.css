@@ -456,6 +456,23 @@
     overflow-wrap: anywhere;
 }
 
+.pm-measurement-selectors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.pm-measurement-selectors label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.pm-measurement-selectors select {
+    max-width: 100%;
+}
+
 @media (max-width: 1250px) {
     .pm-flow {
         grid-template-columns: repeat(3, minmax(0, 1fr));
