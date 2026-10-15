@@ -1018,28 +1018,24 @@ export default function Process() {
     }
 
     // 차트 데이터
-    const metric = METRICS.find(
-        (item) => item.key === metricKey
-    );
-
-    // 센서 API는 최신순이므로 차트에서는 시간순으로 변경
-    const chronological = [...sensors].reverse();
-    const sensorExecutions = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
-    const sensorProcess = row => sensorExecutions.get(String(row.execution_id));
-
-    const numericValues = chronological.map((row) => {
-        const value = row[metricKey];
-
-        if (
-            value === null
-            || value === undefined
-            || value === ""
-        ) {
-            return null;
-        }
-
-        return Number(value);
-    });
+    const metrics = measurementProcess === "all"
+        ? ALL_METRICS
+        : PROCESS_METRICS[measurementProcess] || ALL_METRICS;
+    const metric = metrics.find(item => item.key === metricKey) || metrics[0];
+    const processes = measurementProcess === "all" ? STEPS : [measurementProcess];
+    const visibleRows = normalizeMeasurements(sensors, executions)
+        .filter(row => processes.includes(row.measurementProcess));
+    // 원본은 최신순으로 유지하고 차트용 배열만 시간순으로 변경한다.
+    const chronological = [...visibleRows].reverse();
+    const comparisonKeys = {
+        actualQtyKg: ["targetQtyKg", "actualQtyKg"],
+        fill_weight_1st_g: ["fill_weight_1st_g", "fill_weight_2nd_g"],
+        fill_weight_2nd_g: ["fill_weight_1st_g", "fill_weight_2nd_g"],
+        upper_seal_temp_c: ["upper_seal_temp_c", "lower_seal_temp_c"],
+        lower_seal_temp_c: ["upper_seal_temp_c", "lower_seal_temp_c"]
+    };
+    const seriesKeys = comparisonKeys[metric.key] || [metric.key];
+    const colors = ["#2563eb", "#059669", "#d97706", "#dc2626", "#7c3aed"];
 
     const chartData = {
         labels: chronological.map(row => dateText(row.measurementTime) + " · " + (row.materialName || row.measurementId)),
@@ -1097,7 +1093,7 @@ export default function Process() {
         "폐기 처리된 LOT입니다. "
         + "생산 및 검사 기록은 보존되며 다음 공정으로 진행할 수 없습니다.";
 
-    if (lot?.status === "완료") {
+    } else if (lot?.status === "완료") {
         guidance = "LOT 생산이 완료되었습니다.";
 
     } else if (pending.length > 0) {
@@ -1716,4 +1712,4 @@ export default function Process() {
                 )}
         </div>
     );
-}}
+}
