@@ -207,7 +207,7 @@ export default function Dashboard() {
                         params: { batchId }
                     }),
                     axios.get(`${API_URL}/mask/anomaly-events`, {
-                         withCredentials: true,
+                        withCredentials: true,
                         signal: controller.signal,
                         params: { batchId }
                     }).catch(() => ({ data: { content: [] } })),
