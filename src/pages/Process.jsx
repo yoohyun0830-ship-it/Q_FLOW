@@ -159,6 +159,14 @@ function errorText(error) {
     }
 
     const status = error.response?.status;
+    // 로그인·권한 오류 안내를 먼저 처리
+    if (error.response?.status === 401) {
+        return "로그인이 필요합니다. 로그인 후 다시 시도해 주세요.";
+    }
+
+    if (error.response?.status === 403) {
+        return "처리 권한이 없습니다. 해당 공정의 담당 관리자 계정으로 로그인해 주세요. 담당자 선택만으로는 로그인 권한이 변경되지 않습니다.";
+    }
 
     if (status === 400) {
         return "입력값을 확인해 주세요. 자세한 원인은 서버 로그에서 확인할 수 있습니다.";
