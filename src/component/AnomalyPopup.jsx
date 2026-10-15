@@ -60,6 +60,16 @@ export default function AnomalyPopup() {
             // 화면 진입 시 즉시 조회
             fetchAnomalies();
 
+            // 공정 모니터링에서 알람을 처리한 경우 즉시 재조회
+            const handleAlarmUpdated = () => {
+                fetchAnomalies();
+            };
+
+            window.addEventListener(
+                "qflow:alarm-updated",
+                handleAlarmUpdated
+            );
+
             // 5초마다 새로운 이상치 확인
             const intervalId = setInterval(() => {
                 fetchAnomalies();
@@ -68,6 +78,10 @@ export default function AnomalyPopup() {
             // 컴포넌트 종료 시 반복 조회 중지
             return () => {
                 clearInterval(intervalId);
+                window.removeEventListener(
+                    "qflow:alarm-updated",
+                    handleAlarmUpdated
+                );
             };
         }, []);
 
@@ -157,6 +171,13 @@ export default function AnomalyPopup() {
         }
         );
 
+        // API 저장 성공 후 추가
+        window.dispatchEvent(
+            new CustomEvent("qflow:alarm-updated", {
+                detail: response.data
+            })
+        );
+
         console.log("관리자 확인 성공:", response.data);
         alert("이상치 확인 처리가 완료되었습니다.");
 
@@ -218,6 +239,13 @@ export default function AnomalyPopup() {
                  {
                     withCredentials: true
                 }
+            );
+
+            // API 저장 성공 후 추가
+            window.dispatchEvent(
+                new CustomEvent("qflow:alarm-updated", {
+                    detail: response.data
+                })
             );
 
             console.log("관리자 조치 완료:", response.data);

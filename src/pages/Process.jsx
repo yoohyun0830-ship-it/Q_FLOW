@@ -224,7 +224,7 @@ function Badge({ value }) {
     );
 }
 
-// 알람 확인·조치 팝업
+// 알람 확인·조치 입력창
 function AlarmDialog({
     alarm,
     users,
@@ -236,21 +236,48 @@ function AlarmDialog({
     const dialog = useRef(null);
 
     const [userId, setUserId] = useState("");
+    const [actionType, setActionType] = useState("PROCESS_ADJUST");
     const [note, setNote] = useState("");
+    const [remarks, setRemarks] = useState("");
 
-    const severe = alarm.severity === "심각";
+    const supported = ["주의", "심각"].includes(alarm.severity);
 
-    const supported = ["주의", "심각"].includes(
-        alarm.severity
-    );
+    // 주의·심각 모두 미확인 상태에서는 먼저 확인
+    const needsConfirm =
+        supported && alarm.actionStatus === "미확인";
+
+    // 심각 알람은 확인된 다음에만 조치 가능
+    const needsAction =
+        alarm.severity === "심각"
+        && alarm.actionStatus === "확인됨";
+
+    const actionOptions = [
+        ["PROCESS_ADJUST", "공정 조건 조정"],
+        ["EQUIPMENT_CHECK", "설비 점검"],
+        ["REINSPECTION", "재검사"],
+        ["PRODUCTION_PAUSE", "생산 일시정지"],
+        ["OTHER", "기타"]
+    ];
 
     useEffect(() => {
         const element = dialog.current;
-
         element.showModal();
 
         return () => element.close();
     }, []);
+
+    const cannotSubmit = (
+        busy
+        || !userId
+        || (!needsConfirm && !needsAction)
+        || (
+            needsAction
+            && (
+                !note.trim()
+                || (actionType === "OTHER" && !remarks.trim())
+            )
+        )
+    );
 
     return (
         <dialog
@@ -259,34 +286,34 @@ function AlarmDialog({
             aria-labelledby="pm-dialog-title"
             onCancel={(event) => {
                 event.preventDefault();
-
-                if (!busy) {
-                    onClose();
-                }
+                if (!busy) onClose();
             }}
         >
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
+                    if (cannotSubmit) return;
 
-                    onSave(
-                        alarm,
-                        Number(userId),
-                        note.trim()
-                    );
+                    onSave(alarm, {
+                        userId: Number(userId),
+                        actionType,
+                        actionNote: note.trim(),
+                        actionRemarks:
+                            actionType === "OTHER"
+                                ? remarks.trim()
+                                : null
+                    });
                 }}
             >
                 <div className="pm-heading">
                     <h2 id="pm-dialog-title">
-                        {severe
-                            ? "심각 알람 조치"
-                            : "알람 확인"}
+                        {needsAction ? "심각 알람 조치" : "알람 확인"}
                     </h2>
 
                     <button
                         type="button"
-                        onClick={onClose}
                         disabled={busy}
+                        onClick={onClose}
                         aria-label="닫기"
                     >
                         ×
@@ -295,10 +322,7 @@ function AlarmDialog({
 
                 <div className="pm-alarm-info">
                     <Badge value={alarm.severity} />
-
-                    <span>
-                        알람번호 {alarm.anomalyId}
-                    </span>
+                    <span>알람번호 {alarm.anomalyId}</span>
 
                     <dl>
                         <dt>공정</dt>
@@ -307,10 +331,11 @@ function AlarmDialog({
                         <dt>이상 유형</dt>
                         <dd>{alarm.anomalyType || "-"}</dd>
 
+                        <dt>현재 상태</dt>
+                        <dd>{alarm.actionStatus || "-"}</dd>
+
                         <dt>측정값</dt>
-                        <dd>
-                            {numberText(alarm.measuredValue)}
-                        </dd>
+                        <dd>{numberText(alarm.measuredValue)}</dd>
 
                         <dt>메시지</dt>
                         <dd>{alarm.alarmMessage || "-"}</dd>
@@ -318,55 +343,83 @@ function AlarmDialog({
                 </div>
 
                 <label className="pm-field">
-                    {severe
-                        ? "조치 담당자"
-                        : "확인 담당자"}
+                    {needsAction ? "조치 담당자" : "확인 담당자"}
 
                     <select
                         required
-                        autoFocus
                         value={userId}
                         disabled={busy}
-                        onChange={(event) => {
-                            setUserId(event.target.value);
-                        }}
+                        onChange={(event) => setUserId(event.target.value)}
                     >
-                        <option value="">
-                            담당자를 선택하세요
-                        </option>
+                        <option value="">담당자를 선택하세요</option>
 
                         {users.map((user) => (
-                            <option
-                                key={user.userId}
-                                value={user.userId}
-                            >
+                            <option key={user.userId} value={user.userId}>
                                 {user.userName} ({user.userId})
                             </option>
                         ))}
                     </select>
                 </label>
 
-                {severe && (
-                    <label className="pm-field">
-                        조치내용
-
-                        <textarea
-                            required
-                            rows={5}
-                            value={note}
-                            disabled={busy}
-                            placeholder="점검 내용과 조치 결과를 입력해 주세요."
-                            onChange={(event) => {
-                                setNote(event.target.value);
-                            }}
-                        />
-                    </label>
+                {needsConfirm && alarm.severity === "심각" && (
+                    <p className="pm-muted">
+                        먼저 알람을 확인해 주세요.
+                        확인 처리 후 조치 종류와 내용을 입력할 수 있습니다.
+                    </p>
                 )}
 
-                {!supported && (
-                    <p role="alert">
-                        알 수 없는 심각도입니다.
-                        서버 데이터를 확인해 주세요.
+                {needsAction && (
+                    <>
+                        <label className="pm-field">
+                            조치 종류
+                            <select
+                                value={actionType}
+                                disabled={busy}
+                                onChange={(event) =>
+                                    setActionType(event.target.value)
+                                }
+                            >
+                                {actionOptions.map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="pm-field">
+                            조치내용
+                            <textarea
+                                required
+                                rows={5}
+                                value={note}
+                                disabled={busy}
+                                onChange={(event) => setNote(event.target.value)}
+                                placeholder="실제로 수행한 조치 내용을 입력하세요."
+                            />
+                        </label>
+
+                        {actionType === "OTHER" && (
+                            <label className="pm-field">
+                                기타 조치 비고
+                                <textarea
+                                    required
+                                    rows={3}
+                                    value={remarks}
+                                    disabled={busy}
+                                    onChange={(event) =>
+                                        setRemarks(event.target.value)
+                                    }
+                                />
+                            </label>
+                        )}
+                    </>
+                )}
+
+                {!needsConfirm && !needsAction && (
+                    <p className="pm-muted">
+                        현재 상태에서는 추가 처리할 수 없습니다.
+                        목록을 새로 조회해 주세요.
                     </p>
                 )}
 
@@ -379,8 +432,8 @@ function AlarmDialog({
                 <div className="pm-actions">
                     <button
                         type="button"
-                        onClick={onClose}
                         disabled={busy}
+                        onClick={onClose}
                     >
                         취소
                     </button>
@@ -388,25 +441,15 @@ function AlarmDialog({
                     <button
                         type="submit"
                         className="pm-primary"
-                        disabled={
-                            busy
-                            || !supported
-                            || !userId
-                            || (severe && !note.trim())
-                        }
+                        disabled={cannotSubmit}
                     >
                         {busy
                             ? "처리 중…"
-                            : severe
+                            : needsAction
                                 ? "조치 완료"
                                 : "확인 처리"}
                     </button>
                 </div>
-
-                <p className="pm-muted">
-                    처리 후 진행 재검사를 눌러
-                    다음 공정 진행 여부를 확인하세요.
-                </p>
             </form>
         </dialog>
     );
@@ -966,6 +1009,40 @@ export default function Process() {
         "tank_temp_c"
     );
 
+    // 다른 팝업에서 알람을 처리하면 목록과 열린 입력창 갱신
+useEffect(() => {
+    const handleAlarmUpdated = (event) => {
+        const updated = event.detail;
+
+        setRevision((value) => value + 1);
+
+        if (updated?.anomalyId == null) return;
+
+        setAlarm((current) => {
+            if (
+                !current
+                || String(current.anomalyId) !== String(updated.anomalyId)
+            ) {
+                return current;
+            }
+
+            const merged = { ...current, ...updated };
+
+            // 처리 완료된 알람이면 열린 입력창도 닫기
+            return isPending(merged) ? merged : null;
+        });
+    };
+
+    window.addEventListener("qflow:alarm-updated", handleAlarmUpdated);
+
+    return () => {
+        window.removeEventListener(
+            "qflow:alarm-updated",
+            handleAlarmUpdated
+        );
+    };
+}, []);
+
     const {
         lot,
         executions,
@@ -1266,29 +1343,73 @@ export default function Process() {
         );
     }
 
-    // 차트 데이터
-    const metric = METRICS.find(
-        (item) => item.key === metricKey
+    /// 차트에 표시할 공정
+const processes = measurementProcess === "all"
+    ? STEPS
+    : [measurementProcess];
+
+// 선택한 공정에서 사용할 측정항목
+const metrics = measurementProcess === "all"
+    ? ALL_METRICS
+    : (PROCESS_METRICS[measurementProcess] || ALL_METRICS);
+
+// 현재 선택한 측정항목
+const metric =
+    metrics.find((item) => item.key === metricKey)
+    || metrics[0];
+
+// 공정별 측정값을 차트용 공통 형식으로 변환
+const normalizedRows = normalizeMeasurements(
+    sensors,
+    executions
+);
+
+// 선택한 공정의 데이터만 표시
+// 최근 측정값 카드에서는 최신순으로 사용
+const visibleRows = normalizedRows
+    .filter((row) => processes.includes(row.measurementProcess))
+    .sort((a, b) =>
+        String(b.measurementTime || "")
+            .localeCompare(String(a.measurementTime || ""))
     );
 
-    // 센서 API는 최신순이므로 차트에서는 시간순으로 변경
-    const chronological = [...sensors].reverse();
-    const sensorExecutions = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
-    const sensorProcess = row => sensorExecutions.get(String(row.execution_id));
+// 차트에서는 과거 → 최신 순서로 표시
+const chronological = [...visibleRows].reverse();
 
-    const numericValues = chronological.map((row) => {
-        const value = row[metricKey];
+// 같은 단위의 비교 항목을 함께 표시
+const comparisonKeys = {
+    actualQtyKg: ["targetQtyKg", "actualQtyKg"],
+    fill_weight_1st_g: [
+        "fill_weight_1st_g",
+        "fill_weight_2nd_g"
+    ],
+    fill_weight_2nd_g: [
+        "fill_weight_1st_g",
+        "fill_weight_2nd_g"
+    ],
+    upper_seal_temp_c: [
+        "upper_seal_temp_c",
+        "lower_seal_temp_c"
+    ],
+    lower_seal_temp_c: [
+        "upper_seal_temp_c",
+        "lower_seal_temp_c"
+    ]
+};
 
-        if (
-            value === null
-            || value === undefined
-            || value === ""
-        ) {
-            return null;
-        }
+const seriesKeys = comparisonKeys[metric.key] || [metric.key];
 
-        return Number(value);
-    });
+// 차트 선 색상
+const colors = [
+    "#2563eb",
+    "#16a34a",
+    "#f59e0b",
+    "#dc2626",
+    "#9333ea",
+    "#0891b2",
+    "#db2777",
+    "#64748b"
+];
 
     const chartData = {
         labels: chronological.map(row => dateText(row.measurementTime) + " · " + (row.materialName || row.measurementId)),
@@ -1346,7 +1467,7 @@ export default function Process() {
         "폐기 처리된 LOT입니다. "
         + "생산 및 검사 기록은 보존되며 다음 공정으로 진행할 수 없습니다.";
 
-    if (lot?.status === "완료") {
+    } else if (lot?.status === "완료") {
         guidance = "LOT 생산이 완료되었습니다.";
 
     } else if (pending.length > 0) {
@@ -1739,9 +1860,7 @@ export default function Process() {
                                                     setAlarm(item);
                                                 }}
                                             >
-                                                {item.severity === "주의"
-                                                    ? "확인"
-                                                    : "조치 입력"}
+                                                {item.actionStatus === "미확인" ? "확인" : "조치 입력"}
                                             </button>
                                         </td>
                                     </tr>
@@ -1925,37 +2044,41 @@ export default function Process() {
                 </div>
             </section>
 
-            {/* 알람 처리 팝업 */}
-            {alarm && (
-                <AlarmDialog
-                    key={alarm.anomalyId}
-                    alarm={alarm}
-                    users={users}
-                    busy={busy}
-                    error={dialogError}
-                    onClose={() => setAlarm(null)}
-                    onSave={(selected, userId, note) => {
-                        mutate(
-                            () => (
-                                selected.severity === "주의"
-                                    ? api.confirm(
-                                        selected.anomalyId,
-                                        userId
-                                    )
-                                    : api.action(
-                                        selected.anomalyId,
-                                        userId,
-                                        note
-                                    )
-                            ),
-                            "알람 처리가 완료되었습니다. "
-                            + "종료된 공정은 진행 재검사로 "
-                            + "다음 단계를 확인하세요.",
-                            true
-                        );
-                    }}
-                />
-            )}
+            {/* 알람 확인·조치 입력창 */}
+{alarm && (
+    <AlarmDialog
+        key={alarm.anomalyId}
+        alarm={alarm}
+        users={users}
+        busy={busy}
+        error={dialogError}
+        onClose={() => setAlarm(null)}
+        onSave={(selected, form) => {
+            const confirming = selected.actionStatus === "미확인";
+
+            mutate(
+                () => (
+                    confirming
+                        ? api.confirm(
+                            selected.anomalyId,
+                            form.userId
+                        )
+                        : api.action(
+                            selected.anomalyId,
+                            form.userId,
+                            form.actionNote,
+                            form.actionType,
+                            form.actionRemarks
+                        )
+                ),
+                confirming
+                    ? "알람을 확인했습니다. 심각 알람은 조치를 이어서 진행해 주세요."
+                    : "알람 조치가 완료되었습니다.",
+                true
+            );
+        }}
+    />
+)}
                         {qcExecution && (
                 <BulkQcApprovalDialog
                     key={qcExecution.execution_id}
@@ -1980,4 +2103,4 @@ export default function Process() {
                 )}
         </div>
     );
-}}
+}

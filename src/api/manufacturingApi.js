@@ -1269,26 +1269,44 @@ export const processMonitorApi = {
         return data;
     },
 
-    // 주의 알람 확인
-    async confirm(anomalyId, userId) {
-        const { data } = await api.patch(
-            `/mask/anomaly-events/${anomalyId}/confirm`,
-            { userId }
-        );
+    // 주의·심각 알람 확인
+async confirm(anomalyId, userId) {
+    const { data } = await api.patch(
+        `/mask/anomaly-events/${anomalyId}/confirm`,
+        { userId }
+    );
 
-        return data;
-    },
+    // 같은 화면의 다른 알람 컴포넌트에 변경 알림
+    window.dispatchEvent(
+        new CustomEvent("qflow:alarm-updated", { detail: data })
+    );
 
-    // 심각 알람 조치 완료
-    async action(anomalyId, userId, actionNote) {
-        const { data } = await api.patch(
-            `/mask/anomaly-events/${anomalyId}/action`,
-            {
-                userId,
-                actionNote
-            }
-        );
+    return data;
+},
 
-        return data;
-    }
+// 확인된 심각 알람의 조치 완료
+async action(
+    anomalyId,
+    userId,
+    actionNote,
+    actionType,
+    actionRemarks
+) {
+    const { data } = await api.patch(
+        `/mask/anomaly-events/${anomalyId}/action`,
+        {
+            userId,
+            actionNote,
+            actionType,
+            actionRemarks:
+                actionType === "OTHER" ? actionRemarks : null
+        }
+    );
+
+    window.dispatchEvent(
+        new CustomEvent("qflow:alarm-updated", { detail: data })
+    );
+
+    return data;
+}
 };
