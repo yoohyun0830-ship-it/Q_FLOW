@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import "../css/anomalyPopup.css";
 
+// 조회·확인·조치 모두 로그인 세션 쿠키를 함께 전달한다.
+const popupApi = axios.create({ withCredentials: true });
+
 export default function AnomalyPopup() {
 
     // 팝업 표시 상태
@@ -11,7 +14,7 @@ export default function AnomalyPopup() {
         useEffect(() => {
         const fetchAnomalies = async () => {
             try {
-                 const response = await axios.get(
+                 const response = await popupApi.get(
                 "http://localhost:8080/mask/anomaly-events/popup"
             );
 
@@ -144,7 +147,7 @@ export default function AnomalyPopup() {
     }
 
     try {
-        const response = await axios.patch(
+        const response = await popupApi.patch(
             `http://localhost:8080/mask/anomaly-events/${anomaly.id}/confirm`,
             {
                 userId: Number(manager)
@@ -188,7 +191,7 @@ export default function AnomalyPopup() {
         }
 
         try {
-            const response = await axios.patch(
+            const response = await popupApi.patch(
                 `http://localhost:8080/mask/anomaly-events/${anomaly.id}/action`,
                 {
                     userId: Number(manager),

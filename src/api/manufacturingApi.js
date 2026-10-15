@@ -132,7 +132,6 @@ export const dataTypes = {
             ["sg_criteria", "비중 합격범위"],
             ["appearance_code", "외관"],
             ["microbubble_code", "미세기포"],
-            ["microbial_cfu", "미생물(CFU)"],
             ["overall_qc_result", "종합결과"],
             ["qc_notes_code", "검사 비고"]
         ]
@@ -1125,6 +1124,26 @@ export const processMonitorApi = {
         }
 
         return data;
+    },
+
+    // LOT의 센서 이력을 전 페이지 조회한다. 가열·냉각 공정이 같은 센서 테이블을 사용한다.
+    async lotSensors(batchId, signal) {
+        const rows = [];
+        let page = 0;
+        let totalPages;
+        do {
+            const { data } = await api.get("/mask/sensor-telemetries", {
+                params: { batchId, page }, signal
+            });
+            if (!Array.isArray(data?.content) || !Number.isInteger(data.totalPages) || data.totalPages < 0) {
+                throw new Error("센서 목록 응답을 확인해 주세요.");
+            }
+            rows.push(...data.content);
+            totalPages = data.totalPages;
+            page += 1;
+        } while (page < totalPages);
+        return [...new Map(rows.map(row => [row.sensor_id, row])).values()]
+            .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || Number(b.sensor_id) - Number(a.sensor_id));
     },
 
     // 공정 실행의 최근 센서 20건
