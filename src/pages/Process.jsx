@@ -39,6 +39,10 @@ const STEPS = [
 
 // 센서 카드와 차트 항목
 const METRICS = [
+    { key: "tank_temp_c", label: "탱크 온도", unit: "℃" },
+    { key: "homomixer_rpm", label: "호모믹서 RPM", unit: "rpm" },
+    { key: "vacuum_kpa", label: "진공도", unit: "kPa" },
+    { key: "cooling_valve_pct", label: "냉각 밸브 개도", unit: "%" },
     {
         key: "paddle_rpm",
         label: "교반 RPM",
@@ -692,13 +696,12 @@ export default function Process() {
     const [qcExecution, setQcExecution] = useState(null);
 
     // 센서 조회
-    const [sensorId, setSensorId] = useState("");
     const [sensors, setSensors] = useState([]);
     const [sensorLoading, setSensorLoading] = useState(false);
     const [sensorError, setSensorError] = useState("");
 
     const [metricKey, setMetricKey] = useState(
-        "motor_torque_pct"
+        "tank_temp_c"
     );
 
     const {
@@ -810,17 +813,6 @@ export default function Process() {
                     alarms: alarmList
                 });
 
-                // 기존 센서 조회 대상이 남아 있으면 유지
-                setSensorId((previous) => {
-                    const exists = rows.some(
-                        (row) =>
-                            String(row.execution_id) === previous
-                    );
-
-                    return exists
-                        ? previous
-                        : String(rows[0]?.execution_id ?? "");
-                });
 
             } catch (failure) {
                 if (!controller.signal.aborted) {
@@ -840,14 +832,18 @@ export default function Process() {
         return () => controller.abort();
     }, [batchId, revision]);
 
-    // 선택한 실행의 최근 센서값 조회
+    // 다른 LOT를 조회할 때만 이전 LOT의 측정값을 초기화한다.
+    useEffect(() => {
+        setSensors([]);
+    }, [batchId]);
+
+    // 같은 LOT의 가열·냉각 측정 이력을 유지하며 갱신한다.
     useEffect(() => {
         const controller = new AbortController();
 
-        setSensors([]);
         setSensorError("");
 
-        if (!sensorId) {
+        if (!batchId) {
             setSensorLoading(false);
 
             return () => controller.abort();
@@ -855,10 +851,11 @@ export default function Process() {
 
         setSensorLoading(true);
 
-        api.sensors(sensorId, controller.signal)
+        api.lotSensors(batchId, controller.signal)
             .then((rows) => {
                 if (!controller.signal.aborted) {
-                    setSensors(rows);
+                    // 빈 응답 또는 새 공정의 첫 측정 대기 중에도 마지막 값은 유지한다.
+                    if (rows.length > 0) setSensors(rows);
                 }
             })
             .catch((failure) => {
@@ -873,7 +870,21 @@ export default function Process() {
             });
 
         return () => controller.abort();
-    }, [sensorId, batchId, revision]);
+    }, [batchId, revision]);
+
+    // 새로고침 버튼과 같은 조회를 완료 후 10초 뒤 다시 실행한다.
+    // 조회·저장 중이나 팝업 작성 중에는 자동 갱신을 잠시 멈춘다.
+    useEffect(() => {
+        if (loading || sensorLoading || busy || alarm || qcExecution) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setRevision(previous => previous + 1);
+        }, 10_000);
+
+        return () => clearTimeout(timer);
+    }, [revision, batchId, loading, sensorLoading, busy, alarm, qcExecution]);
 
     // 저장·종료·재개·알람 처리 공통 실행
     async function mutate(
@@ -959,6 +970,8 @@ export default function Process() {
 
     // 센서 API는 최신순이므로 차트에서는 시간순으로 변경
     const chronological = [...sensors].reverse();
+    const sensorExecutions = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
+    const sensorProcess = row => sensorExecutions.get(String(row.execution_id));
 
     const numericValues = chronological.map((row) => {
         const value = row[metricKey];
@@ -978,17 +991,17 @@ export default function Process() {
         labels: chronological.map(
             (row) => dateText(row.timestamp)
         ),
-        datasets: [
+        datasets: ["가열/혼합", "냉각"].map((process, index) => (
             {
-                label: `${metric.label} ${metric.unit}`,
-                data: numericValues,
-                borderColor: "#2563eb",
-                backgroundColor: "#dbeafe",
+                label: `${process} · ${metric.label}`,
+                data: chronological.map((row, i) => sensorProcess(row) === process ? numericValues[i] : null),
+                borderColor: index === 0 ? "#ef4444" : "#2563eb",
+                backgroundColor: index === 0 ? "#fee2e2" : "#dbeafe",
                 pointRadius: 3,
                 tension: 0.2,
                 spanGaps: false
             }
-        ]
+        ))
     };
 
     const chartOptions = {
@@ -996,7 +1009,7 @@ export default function Process() {
         maintainAspectRatio: false,
         plugins: {
             legend: {
-                display: false
+                display: true
             },
             datalabels: {
                 display: false
@@ -1127,9 +1140,10 @@ export default function Process() {
                         return;
                     }
 
-                    setSnapshot(EMPTY);
-                    setSensors([]);
-                    setSensorId("");
+                    if (input.trim() !== batchId) {
+                        setSnapshot(EMPTY);
+                        setSensors([]);
+                    }
                     setAlarm(null);
                     setNotice("");
                     setError("");
@@ -1426,32 +1440,11 @@ export default function Process() {
                 </section>
             )}
 
-            {/* 센서 조회 대상 */}
+            {/* LOT의 가열·냉각 센서 이력 */}
             <div className="pm-heading pm-sensor-heading">
                 <h2>센서 모니터링</h2>
 
-                <label>
-                    조회할 실행{" "}
-
-                    <select
-                        value={sensorId}
-                        disabled={loading}
-                        onChange={(event) => {
-                            setSensorId(event.target.value);
-                        }}
-                    >
-                        <option value="">선택</option>
-
-                        {executions.map((row) => (
-                            <option
-                                key={row.execution_id}
-                                value={row.execution_id}
-                            >
-                                {row.process_code} · {row.execution_id}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                <p className="pm-muted">선택 LOT의 2·3공정 측정값 · LOT 변경 시 초기화</p>
             </div>
 
             {sensorError && (
@@ -1471,7 +1464,7 @@ export default function Process() {
                             ? "조회 중…"
                             : sensors.length > 0
                                 ? (
-                                    "측정시각: "
+                                    `${sensorProcess(sensors[0]) || "센서"} 마지막 측정: `
                                     + dateText(sensors[0].timestamp)
                                 )
                                 : "연결된 센서 데이터가 없습니다."}
@@ -1520,8 +1513,8 @@ export default function Process() {
                     </div>
 
                     <p className="pm-muted">
-                        선택한 실행의 최근 {sensors.length}건
-                        {" · "}새로고침 시 갱신
+                        가열·냉각 측정 이력 {sensors.length}건
+                        {" · "}10초마다 자동 갱신 (조회·처리·팝업 작성 중 일시 중지)
                     </p>
 
                     <div className="pm-chart">
