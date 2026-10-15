@@ -1,7 +1,10 @@
 import axios from "axios";
 
+
+
 const api = axios.create({
-    baseURL: "http://localhost:8080"
+    baseURL: "http://localhost:8080",
+    withCredentials: true
 });
 
 // 화면에서 사용할 데이터 종류
@@ -1027,6 +1030,15 @@ export const processMonitorApi = {
                 qcId,
                 userId
             }
+        );
+
+        return response.data;
+    },
+
+    // 추가: 벌크 검사 불합격 LOT 폐기 확정
+    async discardBulkQc(executionId) {
+        const response = await api.patch(
+            `/mask/process-executions/${executionId}/discard`
         );
 
         return response.data;

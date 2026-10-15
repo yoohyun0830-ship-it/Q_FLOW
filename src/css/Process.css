@@ -491,3 +491,21 @@
         font-size: 24px;
     }
 }
+
+
+.pm-page .pm-actions .pm-discard-button {
+    background: #fff1f2;
+    border: 1px solid #fda4af;
+    color: #be123c;
+    font-weight: 600;
+}
+
+.pm-page .pm-actions .pm-discard-button:hover:not(:disabled) {
+    background: #ffe4e6;
+    border-color: #f43f5e;
+}
+
+.pm-page .pm-actions .pm-discard-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
