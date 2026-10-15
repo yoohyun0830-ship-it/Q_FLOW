@@ -137,6 +137,7 @@ export default function Anomaly() {
             try {
                 const response = await axios.get(API_URL, {
                     signal: controller.signal,
+                    withCredentials: true,
                     params: {
                         page,
                         startDate: condition.startDate || undefined,
@@ -219,7 +220,8 @@ export default function Anomaly() {
                 const response = await axios.get(
                     `${API_URL}/${encodeURIComponent(selectedId)}`,
                     {
-                        signal: controller.signal
+                        signal: controller.signal,
+                        withCredentials: true
                     }
                 );
 
