@@ -1042,6 +1042,34 @@ export const processMonitorApi = {
 
         return response.data;
     },
+    // 5공정 불합격 제품 한 건의 폐기 확정
+    async discardPackagingProduct(pouchId) {
+        const response = await api.patch(
+            `/mask/filling-packagings/${encodeURIComponent(pouchId)}/discard`
+        );
+
+        return response.data;
+    },
+
+    // 현재 5공정 실행의 제품 목록 — 서버에서 20개씩 조회
+    async packagingProducts(executionId, page = 0, signal) {
+        const { data } = await api.get(
+            `/mask/filling-packagings/executions/${executionId}`,
+            {
+                params: { page },
+                signal
+            }
+        );
+
+        if (
+            !Array.isArray(data?.content)
+            || !Number.isInteger(data.totalPages)
+        ) {
+            throw new Error("포장 제품 목록 응답을 확인해 주세요.");
+        }
+
+        return data;
+    },
 
     // 최근 LOT 목록
     async lots(signal) {
