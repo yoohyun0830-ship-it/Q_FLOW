@@ -11,10 +11,13 @@ export default function AnomalyPopup() {
         useEffect(() => {
         const fetchAnomalies = async () => {
             try {
-                 const response = await axios.get(
-                "http://localhost:8080/mask/anomaly-events/popup"
-            );
-
+                 // 로그인 세션 쿠키를 Spring Boot 서버로 전달
+                    const response = await axios.get(
+                        "http://localhost:8080/mask/anomaly-events/popup",
+                        {
+                            withCredentials: true
+                        }
+                    );
             console.log("팝업 API 응답:", response.data);
 
             const dbAnomalies = response.data.map((item) => ({
@@ -144,15 +147,31 @@ export default function AnomalyPopup() {
     }
 
     try {
+        // 관리자 확인 처리
         const response = await axios.patch(
             `http://localhost:8080/mask/anomaly-events/${anomaly.id}/confirm`,
             {
                 userId: Number(manager)
-            }
+            },
+            {
+            withCredentials: true
+        }
         );
 
         console.log("관리자 확인 성공:", response.data);
         alert("이상치 확인 처리가 완료되었습니다.");
+
+        setAnomalies((prev) =>
+        prev
+            .map((item) =>
+                item.id === anomaly.id
+                    ? { ...item, actionStatus: "확인됨" }
+                    : item
+            )
+            .filter((item) =>
+                !(item.id === anomaly.id && item.level === "WARNING")
+            )
+    );
 
     } catch (error) {
         console.error("관리자 확인 실패:", error);
@@ -196,6 +215,9 @@ export default function AnomalyPopup() {
                     actionNote: notes.trim(),
                     actionRemarks:
                         actionType === "OTHER" ? actionDetail.trim() : null
+                },
+                 {
+                    withCredentials: true
                 }
             );
 
