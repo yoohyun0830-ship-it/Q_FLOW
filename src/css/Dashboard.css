@@ -58,7 +58,6 @@
     border-radius: 15px;
     border: #e1e7f0 solid 1px;
     cursor: 'pointer';
-    height: 100%;
     padding: 10px 10px;
 }
 
@@ -101,7 +100,6 @@
 }
 table{
     border-collapse: collapse;
-    height: 320px ;
     margin-top: 10px;
 }
 tr{

@@ -102,6 +102,10 @@ export default function Dashboard() {
     const [error, setError] = useState("");
     const [reload, setReload] = useState(0);
 
+    // 최근 5개 생산 LOT 이력 및 최신 LOT 알람 상태
+    const [recentLots, setRecentLots] = useState([]);
+    const [latestAnomalies, setLatestAnomalies] = useState([]);
+
     // 차트 상태
     const [filterOption, setFilterOption] = useState("nowLot");
     const [chartRows, setChartRows] = useState([]);
@@ -115,7 +119,6 @@ export default function Dashboard() {
         try {
             let res;
             if (option === "recentLot") {
-                // 백엔드 Repository의 findRecent5LotSummary 직접 호출
                 res = await axios.get(`${API_URL}/mask/filling-packagings/summary`, {
                     signal,
                     params: { groupBy: "recent5" }
@@ -155,7 +158,7 @@ export default function Dashboard() {
         }
     }, []);
 
-    // 전체 대시보드 로딩 (최신 배치 확인 후 KPI + 차트 데이터 병렬 동시 호출)
+    // 전체 대시보드 로딩
     useEffect(() => {
         const controller = new AbortController();
 
@@ -164,18 +167,30 @@ export default function Dashboard() {
             setError("");
             setLatestBatch(null);
             setStats(createEmptyStats());
+            setRecentLots([]);
+            setLatestAnomalies([]);
 
             try {
-                // 1. 최신 LOT 조회
-                const batchResponse = await axios.get(`${API_URL}/mask/batches`, {
-                    signal: controller.signal,
-                    params: { page: 0 }
-                });
+                // 1. 최신 LOT 조회 및 최근 5개 LOT 목록 조회 동시 호출
+                const [batchResponse, recentLotsResponse] = await Promise.all([
+                    axios.get(`${API_URL}/mask/batches`, {
+                        signal: controller.signal,
+                        params: { page: 0, size: 1, sort: "batchId,desc" }
+                    }),
+                    axios.get(`${API_URL}/mask/batches`, {
+                        signal: controller.signal,
+                        params: { page: 0, size: 5, sort: "batchId,desc" }
+                    })
+                ]);
+
                 if (controller.signal.aborted) return;
 
                 const batchData = batchResponse.data;
                 const latest = batchData?.content?.[0] ?? null;
                 setLatestBatch(latest);
+
+                const lotsContent = recentLotsResponse.data?.content ?? [];
+                setRecentLots(lotsContent);
 
                 if (!latest || !latest.batchId) {
                     setLoading(false);
@@ -185,26 +200,34 @@ export default function Dashboard() {
                 const batchId = latest.batchId;
                 const signal = controller.signal;
 
-                // 2. 상단 KPI 통계 + 차트 데이터를 병렬로 동시 호출 (6개 API → 1개 통합 쿼리)
-                const [statsResponse] = await Promise.all([
+                // 2. KPI 통계, 최신 LOT 알람(기존 search API에 batchId 전달), 차트 데이터 병렬 호출
+                const [statsResponse, anomalyResponse] = await Promise.all([
                     axios.get(`${API_URL}/mask/filling-packagings/dashboard-stats`, {
                         signal: controller.signal,
                         params: { batchId }
                     }),
+                    axios.get(`${API_URL}/mask/anomaly-events`, {
+                        signal: controller.signal,
+                        params: { batchId }
+                    }).catch(() => ({ data: { content: [] } })),
                     fetchChartData(filterOption, batchId, signal)
                 ]);
 
                 if (controller.signal.aborted) return;
 
                 const s = statsResponse.data;
+                const anomalyList = anomalyResponse.data?.content ?? [];
+
                 setStats({
                     passCount: Number(s.passCount) || 0,
                     rejectCount: Number(s.rejectCount) || 0,
                     totalCount: Number(s.totalCount) || 0,
                     globalRejectCount: Number(s.globalRejectCount) || 0,
                     globalTotalCount: Number(s.globalTotalCount) || 0,
-                    anomalyCount: Number(s.anomalyCount) || 0
+                    anomalyCount: anomalyList.length
                 });
+                setLatestAnomalies(anomalyList);
+
             } catch (err) {
                 if (!controller.signal.aborted) {
                     setError(
@@ -226,7 +249,7 @@ export default function Dashboard() {
         return () => controller.abort();
     }, [reload, fetchChartData]);
 
-    // 필터 변경 처리 (최신 LOT 15분 <-> 최근 LOT 5개)
+    // 필터 변경 처리
     function handleFilterChange(newOption) {
         setFilterOption(newOption);
         if (latestBatch?.batchId) {
@@ -338,7 +361,7 @@ export default function Dashboard() {
     );
 
     return (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 100px)" }}>
             <div
                 style={{
                     display: "flex",
@@ -349,12 +372,12 @@ export default function Dashboard() {
                 }}
             >
                 <div>
-                    <h2 style={{ margin: "0 0 8px" }}>대시보드</h2>
+                    <h2 style={{ margin: "0 0 8px" }}>최신 LOT 대시보드</h2>
                     <p style={{ margin: 0, color: "#64748b" }}>
                         {loading
                             ? "조회 중입니다…"
                             : latestBatchId
-                                ? `시작시간 기준 최신 LOT: ${latestBatchId}`
+                                ? `LOT 번호: ${latestBatchId}`
                                 : "조회할 생산 LOT가 없습니다."}
                     </p>
                 </div>
@@ -383,7 +406,7 @@ export default function Dashboard() {
             )}
 
             {/* 상단 KPI 요약 카드 */}
-            <div className="row">
+            <div className="row" style={{ flexShrink: 0 }}>
                 {/* 1. 양품 생산량 */}
                 <div className="dash_board1">
                     <div>
@@ -430,17 +453,10 @@ export default function Dashboard() {
                                 >
                                     {ready ? differenceText : "-"}
                                 </span>
-                                <span> %p</span>
+                                <span> %</span>
                             </div>
                         </div>
                         <ProgressBar value={ready ? latestDefectRate ?? 0 : 0} color="#ef4444" />
-                        <p style={{ fontSize: "12px", color: "#64748b" }}>
-                            최신 LOT 불량률:{" "}
-                            {ready && latestDefectRate !== null
-                                ? `${latestDefectRate.toFixed(2)}%`
-                                : "-"}
-                            {" · "}전체 포장 기록 기준
-                        </p>
                     </div>
                 </div>
 
@@ -457,16 +473,15 @@ export default function Dashboard() {
                                 <span> 건</span>
                             </div>
                         </div>
-                        <p style={{ fontSize: "12px", color: "#64748b" }}>
-                            최신 LOT 기준 · 확인 여부 전체 포함
-                        </p>
                     </div>
                 </div>
             </div>
 
-            {/* 하단 차트 및 공정 바로가기 */}
-            <div className="row2">
-                <div className="dash_board2">
+            {/* 하단 차트 및 공정 바로가기 (flex: 1을 주어 남은 페이지 세로 공간을 꽉 채움) */}
+            <div className="row2" style={{ flex: 1, display: "flex", alignItems: "stretch", marginTop: "16px" }}>
+                
+                {/* 좌측 그래프 칸 (height 100% 및 내부 차트 높이 자동 맞춤) */}
+                <div className="dash_board2" style={{ flex: 2, display: "flex", flexDirection: "column" }}>
                     <div className="db2_header">
                         <div className="db2_title">생산 및 품질 추이</div>
                         <select
@@ -479,12 +494,12 @@ export default function Dashboard() {
                         </select>
                     </div>
 
-                    <div>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                         {loading || chartLoading ? (
                             <div
                                 role="status"
                                 style={{
-                                    minHeight: "350px",
+                                    flex: 1,
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -506,7 +521,7 @@ export default function Dashboard() {
                         ) : chartRows.length === 0 ? (
                             <div
                                 style={{
-                                    minHeight: "350px",
+                                    flex: 1,
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -516,7 +531,7 @@ export default function Dashboard() {
                                 조회할 차트 데이터가 없습니다.
                             </div>
                         ) : (
-                            <div>
+                            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                                 <p
                                     style={{
                                         margin: "12px 0",
@@ -526,10 +541,10 @@ export default function Dashboard() {
                                 >
                                     {isRecentLot
                                         ? "시작시간 기준 최근 5개 LOT입니다. 포장 기록이 없는 LOT는 0건으로 표시합니다."
-                                        : "각 시각의 00분·15분·30분·45분을 기준으로 집계합니다. 기록이 있는 구간만 표시합니다."}
+                                        : "각 시각의 00분·15분·30분·45분을 기준으로 집계합니다."}
                                 </p>
 
-                                <div style={{ width: "100%", height: "450px" }}>
+                                <div style={{ width: "100%", flex: 1, minHeight: "400px" }}>
                                     <Bar
                                         data={chartData}
                                         options={chartOptions}
@@ -541,12 +556,66 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <Link to="/process" className="link_box">
-                    <div className="dash_board2">
-                        <div className="db2_title">공정 현황</div>
-                        <p>공정 모니터링에서 진행 상태를 확인하세요.</p>
+                {/* 우측 영역 (이상 발생 이력 + 생산완료 LOT 이력 전체 높이를 좌측과 완벽히 일치시킴) */}
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "16px", width: "420px" }}>
+                    
+                    {/* 최신 LOT 이상 발생 이력 박스 (내용물 크기에 맞춤) */}
+                    <div className="dash_board2" style={{ flex: "none", overflowY: "auto" }}>
+                        <div className="db2_title" style={{ marginBottom: "8px" }}>최신 LOT 이상 발생 이력</div>
+                        {latestAnomalies.length === 0 ? (
+                            <div style={{ fontSize: "13px", color: "#64748b" }}>현재 LOT에 발생한 이상 이력이 없습니다.</div>
+                        ) : (
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                                <thead>
+                                    <tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left", color: "#64748b" }}>
+                                        <th style={{ padding: "4px 8px" }}>유형</th>
+                                        <th style={{ padding: "4px 8px" }}>시간</th>
+                                        <th style={{ padding: "4px 8px" }}>상태</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {latestAnomalies.map((alarm, idx) => (
+                                        <tr key={alarm.anomalyId ?? idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                            <td style={{ padding: "6px 8px", fontWeight: "600", color: "#ef4444" }}>
+                                                {alarm.anomalyType || alarm.anomaly_type || "이상 감지"}
+                                            </td>
+                                            <td style={{ padding: "6px 8px" }}>{alarm.detectedAt || alarm.detected_at || "-"}</td>
+                                            <td style={{ padding: "6px 8px" }}>{alarm.actionStatus || alarm.action_status || "발생"}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
-                </Link>
+
+                    {/* 생산완료 LOT 이력 박스 (flex: 1을 주어 남은 세로 공간을 꽉 채움) */}
+                    <div className="dash_board2" style={{ flex: 1, overflowY: "auto" }}>
+                        <div className="db2_title" style={{ marginBottom: "8px" }}>생산완료 LOT 이력</div>
+                        {recentLots.length === 0 ? (
+                            <div style={{ fontSize: "13px", color: "#64748b" }}>조회된 LOT 이력이 없습니다.</div>
+                        ) : (
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                                <thead>
+                                    <tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left", color: "#64748b" }}>
+                                        <th style={{ padding: "4px 8px" }}>LOT 번호</th>
+                                        <th style={{ padding: "4px 8px" }}>목표 수량</th>
+                                        <th style={{ padding: "4px 8px" }}>상태</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recentLots.map((lot) => (
+                                        <tr key={lot.batchId} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                            <td style={{ padding: "6px 8px", fontWeight: "600" }}>{lot.batchId}</td>
+                                            <td style={{ padding: "6px 8px" }}>{lot.targetUnits ? `${lot.targetUnits.toLocaleString()}개` : "-"}</td>
+                                            <td style={{ padding: "6px 8px", color: "#3b82f6" }}>완료</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                </div>
             </div>
         </div>
     );
