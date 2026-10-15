@@ -142,7 +142,9 @@ export default function Anomaly() {
                         startDate: condition.startDate || undefined,
                         endDate: condition.endDate || undefined,
                         severity: condition.severity || undefined,
-                        actionStatus: condition.actionStatus || undefined,
+                        actionStatus: isActions
+                            ? "조치완료"
+                            : condition.actionStatus || undefined,
                         batchIdKeyword: condition.batchIdKeyword || undefined,
                         processCode: condition.processCode || undefined,
                         anomalyType: condition.anomalyType || undefined,
@@ -540,19 +542,21 @@ export default function Anomaly() {
                         </div>
                     </fieldset>
 
-                    <label className="ae-field">
-                        <span>심각도</span>
-                        <select
-                            name="severity"
-                            value={draft.severity}
-                            onChange={handleChange}
-                        >
-                            <option value="">전체</option>
-                            <option value="정상">정상</option>
-                            <option value="주의">주의</option>
-                            <option value="심각">심각</option>
-                        </select>
-                    </label>
+                    {!isActions && (
+                        <label className="ae-field">
+                            <span>조치상태</span>
+                            <select
+                                name="actionStatus"
+                                value={draft.actionStatus}
+                                onChange={handleChange}
+                            >
+                                <option value="">전체</option>
+                                <option value="확인됨">확인됨</option>
+                                <option value="미확인">미확인</option>
+                                <option value="조치완료">조치완료</option>
+                            </select>
+                        </label>
+                    )}
 
                     <label className="ae-field">
                         <span>조치상태</span>
