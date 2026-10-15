@@ -1734,7 +1734,7 @@ const colors = [
                         </button>
                     )}
 
-                    {canResume && (
+                    {canResume && latest?.process_code !== "최종 포장 검사" &&(
                         <button
                             disabled={blocked}
                             onClick={() => {
