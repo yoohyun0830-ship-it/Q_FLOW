@@ -9,6 +9,7 @@ import "../css/alarmManagement.css";
 import "../css/detailModal.css";
 
 const API_URL = "http://localhost:8080/mask/anomaly-events";
+const anomalyApi = axios.create({ withCredentials: true });
 
 // 값이 없을 때 표시
 function display(value) {
@@ -118,6 +119,14 @@ export default function Anomaly() {
 
     // 검색 결과 전체 기준 상태별 집계
     const [summary, setSummary] = useState({});
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // 팝업의 확인·조치 저장이 완료되면 현재 검색조건으로 다시 조회한다.
+    useEffect(() => {
+        const refresh = () => setRefreshKey(value => value + 1);
+        window.addEventListener("anomaly-updated", refresh);
+        return () => window.removeEventListener("anomaly-updated", refresh);
+    }, []);
 
     // 상세조회 및 팝업
     const [selectedId, setSelectedId] = useState(null);
@@ -135,7 +144,7 @@ export default function Anomaly() {
             setAlarms([]);
 
             try {
-                const response = await axios.get(API_URL, {
+                const response = await anomalyApi.get(API_URL, {
                     signal: controller.signal,
                     params: {
                         page,
@@ -202,7 +211,7 @@ export default function Anomaly() {
         fetchAlarms();
 
         return () => controller.abort();
-    }, [condition, page]);
+    }, [condition, page, isActions, refreshKey]);
 
     // 상세보기 선택 시 알람 PK 개별조회
     useEffect(() => {
@@ -216,7 +225,7 @@ export default function Anomaly() {
             setDetail(null);
 
             try {
-                const response = await axios.get(
+                const response = await anomalyApi.get(
                     `${API_URL}/${encodeURIComponent(selectedId)}`,
                     {
                         signal: controller.signal
@@ -368,7 +377,7 @@ export default function Anomaly() {
 
     const countUnavailable = loading || Boolean(listError);
 
-    // 서버에서 상태별 집계를 보내지 않으면 '-' 표시
+    // 확인됨은 조치완료를 포함하며, 집계값은 검색조건 전체 기준이다.
     const acknowledgedCount = summary.acknowledged;
     const unacknowledgedCount = summary.unacknowledged;
 
@@ -479,7 +488,7 @@ export default function Anomaly() {
                     </span>
 
                     <div>
-                        <span>확인됨</span>
+                        <span>확인됨 (조치완료 포함)</span>
                         <strong>
                             {countUnavailable
                                 ? "-"
@@ -505,7 +514,7 @@ export default function Anomaly() {
             </div>
 
             <p className="ae-count-note">
-                검색조건 기준 · 상태별 집계가 없으면 -로 표시합니다.
+                검색조건 기준 · 확인됨은 조치완료를 포함합니다.
             </p>
 
             {/* 검색조건은 항상 펼쳐서 표시 */}

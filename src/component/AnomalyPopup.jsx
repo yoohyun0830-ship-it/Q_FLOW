@@ -158,6 +158,7 @@ export default function AnomalyPopup() {
         );
 
         console.log("관리자 확인 성공:", response.data);
+        window.dispatchEvent(new Event("anomaly-updated"));
         alert("이상치 확인 처리가 완료되었습니다.");
 
         setAnomalies((prev) =>
@@ -221,6 +222,7 @@ export default function AnomalyPopup() {
             );
 
             console.log("관리자 조치 완료:", response.data);
+            window.dispatchEvent(new Event("anomaly-updated"));
             alert("관리자 조치내역이 DB에 저장되었습니다.");
 
             // 성공한 이상치를 현재 팝업 목록에서 제거
