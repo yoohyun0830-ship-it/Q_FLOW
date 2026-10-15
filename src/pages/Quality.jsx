@@ -33,8 +33,7 @@ const TYPES = {
             ["viscosity_measured", "점도"],
             ["specific_gravity", "비중"],
             ["appearance_code", "외관"],
-            ["microbubble_code", "미세기포"],
-            ["microbial_cfu", "미생물(CFU)"]
+            ["microbubble_code", "미세기포"]
         ],
 
         fields: [
@@ -50,7 +49,6 @@ const TYPES = {
             ["sg_criteria", "비중 기준"],
             ["appearance_code", "외관"],
             ["microbubble_code", "미세기포"],
-            ["microbial_cfu", "미생물(CFU)"],
             ["overall_qc_result", "종합 검사결과"],
             ["qc_notes_code", "검사 비고"],
             ["record_source", "데이터 출처"],
