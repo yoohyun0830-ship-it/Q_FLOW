@@ -46,7 +46,7 @@ function App() {
                     <Route 
                         path="/quality/defect" element={<Quality />} />
 
-                    {/* 3. 불량 & 분석 리포트 페이지 */}
+                    {/* 3. 불량 차트 페이지 */}
                     <Route 
                         path="/quality/report" element={<Quality />} />
                         

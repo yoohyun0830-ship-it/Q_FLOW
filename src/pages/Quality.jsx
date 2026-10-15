@@ -1298,7 +1298,7 @@ export default function Quality() {
                 <DefectManagement />
             )}
 
-            {/* 3. 불량 & 분석 리포트 화면 (/quality/report) */}
+            {/* 3. 불량 차트 화면 (/quality/report) */}
             {currentPath === "/quality/report" && (
                 <Report />
             )}

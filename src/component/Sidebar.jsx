@@ -69,7 +69,7 @@ export default function Sidebar({ isCollapsed }) {
                             </NavLink>
 
                             <NavLink to="/quality/report">
-                                불량 & 분석 리포트
+                                불량 차트
                             </NavLink>
                         </div>
                     )}

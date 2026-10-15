@@ -265,32 +265,6 @@ export default function ReportPage() {
                 </div>
             </div>
 
-            {/* 2. 하단 가로 100% 넓이의 원인 후보 분석 테이블 */}
-            <div className="report-bottom-single" style={{ marginTop: "20px", width: "100%" }}>
-                <div className="report-card">
-                    <h3>원인 후보 분석 (정상 vs 불량 공정조건 비교)</h3>
-                    <div className="table-wrapper">
-                        <table className="report-table">
-                            <thead>
-                                <tr>
-                                    <th>공정조건</th>
-                                    <th>정상 평균</th>
-                                    <th>불량 평균</th>
-                                    <th>차이</th>
-                                    <th>확인 우선도</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colSpan={5} className="report-empty-state">
-                                        {loading ? "데이터를 불러오는 중입니다..." : "비교할 데이터가 없습니다"}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
