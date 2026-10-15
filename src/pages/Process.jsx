@@ -691,6 +691,214 @@ function BulkQcApprovalDialog({
     );
 }
 
+// 5공정 제품 목록 및 제품별 폐기 처리
+function PackagingProductList({
+    execution,
+    lotStatus,
+    revision,
+    busy,
+    canManage,
+    onDiscard
+}) {
+    const [page, setPage] = useState(0);
+    const [result, setResult] = useState({
+        content: [],
+        totalElements: 0,
+        totalPages: 0
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const executionId = execution.execution_id;
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        setLoading(true);
+        setError("");
+
+        api.packagingProducts(
+            executionId,
+            page,
+            controller.signal
+        )
+            .then((data) => {
+                if (controller.signal.aborted) return;
+
+                // 조회 중 전체 페이지 수가 줄어든 경우 첫 페이지로 이동
+                if (page > 0 && page >= data.totalPages) {
+                    setPage(0);
+                    return;
+                }
+
+                setResult(data);
+            })
+            .catch((failure) => {
+                if (!controller.signal.aborted) {
+                    setError(errorText(failure));
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
+
+        return () => controller.abort();
+    }, [executionId, page, revision]);
+
+    const canDiscard = (
+        canManage
+        && lotStatus === "진행중"
+        && execution.status === "완료"
+    );
+
+    return (
+        <section className="pm-card">
+            <h2>
+                최종 포장 제품 목록
+                <small> 총 {result.totalElements}개</small>
+            </h2>
+
+            <p className="pm-muted">
+                불합격 제품은 관리자 폐기 확정이 필요합니다.
+                모든 알람 처리와 제품 폐기가 끝나면 LOT를 완료할 수 있습니다.
+            </p>
+
+            {error && (
+                <p className="pm-error" role="alert">
+                    {error}
+                </p>
+            )}
+
+            {loading && (
+                <p className="pm-muted" role="status">
+                    제품 목록을 조회하고 있습니다.
+                </p>
+            )}
+
+            {!error && (
+                <>
+                    <div
+                        className="pm-table-wrap"
+                        aria-busy={loading}
+                    >
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>제품번호</th>
+                                    <th>중량검사</th>
+                                    <th>금속검사</th>
+                                    <th>비전검사</th>
+                                    <th>종합결과</th>
+                                    <th>폐기 상태</th>
+                                    <th>폐기 담당자</th>
+                                    <th>폐기 시간</th>
+                                    <th>처리</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {result.content.map((product) => {
+                                    const failed =
+                                        product.final_disposition === "불합격";
+
+                                    const disposed =
+                                        product.disposalStatus === "폐기완료";
+
+                                    return (
+                                        <tr key={product.pouch_id}>
+                                            <td>{product.pouch_id}</td>
+                                            <td>{product.checkweigher_status || "-"}</td>
+                                            <td>{product.metal_detector_status || "-"}</td>
+                                            <td>{product.vision_inspection_status || "-"}</td>
+
+                                            <td>
+                                                {product.final_disposition
+                                                    || "판정·알람 처리 대기"}
+                                            </td>
+
+                                            <td>
+                                                {product.disposalStatus
+                                                    || (failed ? "폐기 미확정" : "-")}
+                                            </td>
+
+                                            <td>
+                                                {product.disposedByUserName
+                                                    || product.disposedByUserId
+                                                    || "-"}
+                                            </td>
+
+                                            <td>
+                                                {dateText(product.disposedAt)}
+                                            </td>
+
+                                            <td>
+                                                {disposed ? (
+                                                    "처리 완료"
+                                                ) : failed && canDiscard ? (
+                                                    <button
+                                                        type="button"
+                                                        className="pm-discard-button"
+                                                        disabled={busy || loading}
+                                                        onClick={() => onDiscard(product)}
+                                                    >
+                                                        제품 폐기 확정
+                                                    </button>
+                                                ) : failed ? (
+                                                    "관리자 처리 대기"
+                                                ) : (
+                                                    "-"
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+
+                                {!loading && result.content.length === 0 && (
+                                    <tr>
+                                        <td colSpan={9}>
+                                            등록된 제품이 없습니다.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="pm-actions">
+                        <button
+                            type="button"
+                            disabled={busy || loading || page === 0}
+                            onClick={() => setPage((value) => value - 1)}
+                        >
+                            이전
+                        </button>
+
+                        <span>
+                            {result.totalPages === 0 ? 0 : page + 1}
+                            {" / "}
+                            {result.totalPages} 페이지
+                        </span>
+
+                        <button
+                            type="button"
+                            disabled={
+                                busy
+                                || loading
+                                || page + 1 >= result.totalPages
+                            }
+                            onClick={() => setPage((value) => value + 1)}
+                        >
+                            다음
+                        </button>
+                    </div>
+                </>
+            )}
+        </section>
+    );
+}
+
 export default function Process() {
     // LOT·사용자 선택 목록
     const [lots, setLots] = useState([]);
@@ -1014,6 +1222,47 @@ export default function Process() {
         await mutate(
             () => api.discardBulkQc(executionId),
             "LOT 폐기가 확정되었습니다."
+        );
+    }
+
+    // 5공정 제품 한 건의 폐기 확정
+    async function handleDiscardPackagingProduct(product) {
+        if (blocked || busyRef.current) {
+            return;
+        }
+
+        if (!["4공정관리자", "5공정관리자"].includes(userRole)) {
+            setError("4공정관리자 또는 5공정관리자만 폐기할 수 있습니다.");
+            return;
+        }
+
+        if (
+            lot?.status !== "진행중"
+            || latest?.process_code !== "최종 포장 검사"
+            || latest?.status !== "완료"
+            || String(product.executionId) !== String(latest.execution_id)
+            || product.final_disposition !== "불합격"
+            || product.disposalStatus === "폐기완료"
+        ) {
+            setError("현재 제품 상태에서는 폐기를 확정할 수 없습니다.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `제품 ${product.pouch_id}의 폐기를 확정하시겠습니까?\n\n`
+            + "선택한 제품 한 건만 폐기 처리됩니다.\n"
+            + "검사 결과와 측정 기록은 보존됩니다.\n"
+            + "로그인한 관리자와 처리시간이 기록됩니다."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        await mutate(
+            () => api.discardPackagingProduct(product.pouch_id),
+            "제품 폐기가 확정되었습니다. "
+            + "모든 알람 처리와 제품 폐기가 끝났다면 진행 재검사를 눌러 주세요."
         );
     }
 
@@ -1416,6 +1665,21 @@ export default function Process() {
                     )}
                 </div>
             </section>
+
+            {/* 5공정 제품별 판정 및 폐기 관리 */}
+            {latest?.process_code === "최종 포장 검사" && (
+                <PackagingProductList
+                    key={latest.execution_id}
+                    execution={latest}
+                    lotStatus={lot?.status}
+                    revision={revision}
+                    busy={blocked}
+                    canManage={
+                        ["4공정관리자", "5공정관리자"].includes(userRole)
+                    }
+                    onDiscard={handleDiscardPackagingProduct}
+                />
+            )}
 
             {/* 현재 실행의 미처리 알람 */}
             {pending.length > 0 && (
