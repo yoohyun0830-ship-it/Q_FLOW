@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import AnomalyPopup from "./AnomalyPopup";
+import CompletedActionPopup from "./CompletedActionPopup";
 
 export default function MainLayout() {
     const navigate = useNavigate();
@@ -37,8 +38,11 @@ export default function MainLayout() {
                     <Outlet />
                 </main>
             </div>
-            {/* 이상치 팝업 추가 */}
+            {/* 공정관리자 이상 발생 팝업 */}
             <AnomalyPopup />
-        </div>
+
+            {/* 최고관리자 조치완료 알림 팝업 */}
+            <CompletedActionPopup />
+            </div>
     );
 }
