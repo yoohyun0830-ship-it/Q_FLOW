@@ -786,6 +786,18 @@ export default function Process() {
         && latest?.status === "완료"
     );
 
+    // 버튼 표시용 로그인 역할
+    // 실제 폐기 권한은 백엔드에서 세션으로 다시 확인
+    const userRole = localStorage.getItem("userRole");
+
+    const canDiscardBulkQc = (
+        ["4공정관리자", "5공정관리자"].includes(userRole)
+        && lot?.status === "진행중"
+        && latest?.process_code === "벌크 검사"
+        && latest?.status === "완료"
+        && running.length === 0
+    );
+
     // 최근 LOT·사용자 목록 조회
     useEffect(() => {
         const controller = new AbortController();
@@ -978,18 +990,57 @@ export default function Process() {
         }
     }
 
-    // 공정과 항목에 맞는 측정값만 표시하고 같은 단위의 비교값을 여러 선으로 구성한다.
-    const metrics = measurementProcess === "all" ? ALL_METRICS : PROCESS_METRICS[measurementProcess];
-    const metric = metrics.find(item => item.key === metricKey) || metrics[0];
-    const measurements = normalizeMeasurements(sensors, executions);
-    const visibleRows = measurements.filter(row => measurementProcess === "all" || row.measurementProcess === measurementProcess);
-    const chronological = visibleRows.filter(row => PROCESS_METRICS[row.measurementProcess].some(item => item.key === metric.key)).slice().reverse();
-    const seriesKeys = metric.key === "actualQtyKg" ? ["targetQtyKg", "actualQtyKg"]
-        : ["fill_weight_1st_g", "fill_weight_2nd_g"].includes(metric.key) ? ["fill_weight_1st_g", "fill_weight_2nd_g"]
-        : ["upper_seal_temp_c", "lower_seal_temp_c"].includes(metric.key) ? ["upper_seal_temp_c", "lower_seal_temp_c"]
-        : [metric.key];
-    const processes = measurementProcess === "all" ? STEPS : [measurementProcess];
-    const colors = ["#2563eb", "#ef4444", "#16a34a", "#9333ea", "#ea580c"];
+    // 벌크 검사 불합격 LOT 폐기 확정
+    async function handleDiscardBulkQc() {
+        if (blocked || busyRef.current || !canDiscardBulkQc) {
+            return;
+        }
+
+        // 클릭한 시점의 실행번호와 LOT 번호
+        const executionId = latest.execution_id;
+        const targetBatchId = lot.batchId;
+
+        const confirmed = window.confirm(
+            `LOT ${targetBatchId}를 전체 폐기하시겠습니까?\n\n`
+            + "벌크 검사 종합결과가 불합격인 경우에만 폐기할 수 있습니다.\n"
+            + "데이터는 삭제되지 않고 LOT와 벌크 공정 상태가 폐기로 변경됩니다.\n"
+            + "현재 로그인한 관리자가 LOT의 최종 담당자로 저장됩니다."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        await mutate(
+            () => api.discardBulkQc(executionId),
+            "LOT 폐기가 확정되었습니다."
+        );
+    }
+
+    // 차트 데이터
+    const metric = METRICS.find(
+        (item) => item.key === metricKey
+    );
+
+    // 센서 API는 최신순이므로 차트에서는 시간순으로 변경
+    const chronological = [...sensors].reverse();
+    const sensorExecutions = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
+    const sensorProcess = row => sensorExecutions.get(String(row.execution_id));
+
+    const numericValues = chronological.map((row) => {
+        const value = row[metricKey];
+
+        if (
+            value === null
+            || value === undefined
+            || value === ""
+        ) {
+            return null;
+        }
+
+        return Number(value);
+    });
+
     const chartData = {
         labels: chronological.map(row => dateText(row.measurementTime) + " · " + (row.materialName || row.measurementId)),
         datasets: processes.flatMap(process => seriesKeys.map(key => ({ process, key })))
@@ -1040,6 +1091,11 @@ export default function Process() {
 
     // 현재 상태 안내
     let guidance = "LOT를 선택해 주세요.";
+
+    if (lot?.status === "폐기") {
+    guidance =
+        "폐기 처리된 LOT입니다. "
+        + "생산 및 검사 기록은 보존되며 다음 공정으로 진행할 수 없습니다.";
 
     if (lot?.status === "완료") {
         guidance = "LOT 생산이 완료되었습니다.";
@@ -1323,6 +1379,18 @@ export default function Process() {
                             진행 재검사
                         </button>
                     )}
+                    {canDiscardBulkQc && (
+                            <button
+                                type="button"
+                                className="pm-discard-button"
+                                disabled={blocked}
+                                onClick={handleDiscardBulkQc}
+                            >
+                                LOT 전체 폐기
+                            </button>
+                        )}
+
+
                     {latest?.process_code === "벌크 검사"
                         && ["진행중", "완료"].includes(latest.status)
                         && lot?.status === "진행중"
@@ -1648,4 +1716,4 @@ export default function Process() {
                 )}
         </div>
     );
-}
+}}
