@@ -1126,6 +1126,38 @@ export const processMonitorApi = {
         return data;
     },
 
+    // 선택 LOT의 1~5공정 측정값을 각 기존 GET API에서 전 페이지 조회한다.
+    async lotMeasurements(batchId, signal) {
+        const sources = [
+            ["/mask/material-dispensing", "원료 칭량", "dispensedAt", "dispenseId"],
+            ["/mask/sensor-telemetries", null, "timestamp", "sensor_id"],
+            ["/mask/bulk-qc", "벌크 검사", "sample_time", "qc_id"],
+            ["/mask/filling-packagings", "최종 포장 검사", "timestamp", "pouch_id"]
+        ];
+        const lists = await Promise.all(sources.map(async ([path, processCode, timeKey, idKey]) => {
+            const rows = [];
+            let page = 0;
+            let totalPages;
+            do {
+                const { data } = await api.get(path, { params: { batchId, page }, signal });
+                if (!Array.isArray(data?.content) || !Number.isInteger(data.totalPages) || data.totalPages < 0) {
+                    throw new Error(`${path} 측정값 응답을 확인해 주세요.`);
+                }
+                rows.push(...data.content);
+                totalPages = data.totalPages;
+                page += 1;
+            } while (page < totalPages);
+            return [...new Map(rows.map(row => [row[idKey], row])).values()].map(row => ({
+                ...row,
+                measurementProcess: processCode,
+                measurementTime: row[timeKey],
+                measurementId: String(row[idKey]),
+                measurementSource: path
+            }));
+        }));
+        return lists.flat().sort((a, b) => String(b.measurementTime).localeCompare(String(a.measurementTime)));
+    },
+
     // LOT의 센서 이력을 전 페이지 조회한다. 가열·냉각 공정이 같은 센서 테이블을 사용한다.
     async lotSensors(batchId, signal) {
         const rows = [];

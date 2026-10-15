@@ -65,6 +65,59 @@ const METRICS = [
     }
 ];
 
+// 공정별 실제 수치 필드. 같은 물리량만 공통 키로 비교한다(pH·점도).
+const MATERIAL_METRICS = [
+    { key: "targetQtyKg", label: "목표 칭량량", unit: "kg" },
+    { key: "actualQtyKg", label: "실제 칭량량 (목표 비교)", unit: "kg" },
+    { key: "weightDifferenceKg", label: "칭량 오차량", unit: "kg" },
+    { key: "weightErrorPct", label: "칭량 오차율", unit: "%" }
+];
+const BULK_METRICS = [
+    { key: "ph_level", label: "측정 pH", unit: "" },
+    { key: "bulk_viscosity_cps", label: "측정 점도", unit: "cP" },
+    { key: "specific_gravity", label: "비중", unit: "" }
+];
+const PACKAGING_METRICS = [
+    { key: "sheet_dry_weight_g", label: "시트 중량", unit: "g" },
+    { key: "pouch_tare_weight_g", label: "파우치 중량", unit: "g" },
+    { key: "essence_net_weight_g", label: "에센스 순중량", unit: "g" },
+    { key: "gross_total_weight_g", label: "총중량", unit: "g" },
+    { key: "fill_weight_1st_g", label: "1차 충진량 (2차 비교)", unit: "g" },
+    { key: "fill_weight_2nd_g", label: "2차 충진량 (1차 비교)", unit: "g" },
+    { key: "upper_seal_temp_c", label: "상부 실링온도 (하부 비교)", unit: "℃" },
+    { key: "lower_seal_temp_c", label: "하부 실링온도 (상부 비교)", unit: "℃" },
+    { key: "seal_pressure_bar", label: "실링 압력", unit: "bar" },
+    { key: "n2_residual_o2_pct", label: "잔존산소율", unit: "%" }
+];
+const PROCESS_METRICS = {
+    "원료 칭량": MATERIAL_METRICS,
+    "가열/혼합": METRICS,
+    "냉각": METRICS,
+    "벌크 검사": BULK_METRICS,
+    "최종 포장 검사": PACKAGING_METRICS
+};
+const ALL_METRICS = [...new Map(Object.values(PROCESS_METRICS).flat().map(item => [item.key, item])).values()];
+const numericMeasurement = value => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+
+// API별 시간·실행번호·측정항목을 차트용으로 통일한다. 원본 데이터는 변경하지 않는다.
+function normalizeMeasurements(rows, executions) {
+    const names = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
+    return rows.map(row => {
+        const process = row.measurementProcess || names.get(String(row.execution_id ?? row.executionId));
+        const target = numericMeasurement(row.targetQtyKg);
+        const actual = numericMeasurement(row.actualQtyKg);
+        const difference = target !== null && actual !== null ? actual - target : null;
+        return {
+            ...row,
+            measurementProcess: process,
+            ph_level: process === "벌크 검사" ? row.ph_measured : row.ph_level,
+            bulk_viscosity_cps: process === "벌크 검사" ? row.viscosity_measured : row.bulk_viscosity_cps,
+            weightDifferenceKg: difference,
+            weightErrorPct: difference !== null && target > 0 ? difference / target * 100 : null
+        };
+    }).filter(row => PROCESS_METRICS[row.measurementProcess]);
+}
+
 const EMPTY = {
     lot: null,
     executions: [],
@@ -700,6 +753,7 @@ export default function Process() {
     const [sensorLoading, setSensorLoading] = useState(false);
     const [sensorError, setSensorError] = useState("");
 
+    const [measurementProcess, setMeasurementProcess] = useState("all");
     const [metricKey, setMetricKey] = useState(
         "tank_temp_c"
     );
@@ -825,7 +879,7 @@ export default function Process() {
         setSensors([]);
     }, [batchId]);
 
-    // 같은 LOT의 가열·냉각 측정 이력을 유지하며 갱신한다.
+    // 같은 LOT의 1~5공정 측정 이력을 유지하며 갱신한다.
     useEffect(() => {
         const controller = new AbortController();
 
@@ -839,7 +893,7 @@ export default function Process() {
 
         setSensorLoading(true);
 
-        api.lotSensors(batchId, controller.signal)
+        api.lotMeasurements(batchId, controller.signal)
             .then((rows) => {
                 if (!controller.signal.aborted) {
                     // 빈 응답 또는 새 공정의 첫 측정 대기 중에도 마지막 값은 유지한다.
@@ -924,45 +978,31 @@ export default function Process() {
         }
     }
 
-    // 차트 데이터
-    const metric = METRICS.find(
-        (item) => item.key === metricKey
-    );
-
-    // 센서 API는 최신순이므로 차트에서는 시간순으로 변경
-    const chronological = [...sensors].reverse();
-    const sensorExecutions = new Map(executions.map(row => [String(row.execution_id), row.process_code]));
-    const sensorProcess = row => sensorExecutions.get(String(row.execution_id));
-
-    const numericValues = chronological.map((row) => {
-        const value = row[metricKey];
-
-        if (
-            value === null
-            || value === undefined
-            || value === ""
-        ) {
-            return null;
-        }
-
-        return Number(value);
-    });
-
+    // 공정과 항목에 맞는 측정값만 표시하고 같은 단위의 비교값을 여러 선으로 구성한다.
+    const metrics = measurementProcess === "all" ? ALL_METRICS : PROCESS_METRICS[measurementProcess];
+    const metric = metrics.find(item => item.key === metricKey) || metrics[0];
+    const measurements = normalizeMeasurements(sensors, executions);
+    const visibleRows = measurements.filter(row => measurementProcess === "all" || row.measurementProcess === measurementProcess);
+    const chronological = visibleRows.filter(row => PROCESS_METRICS[row.measurementProcess].some(item => item.key === metric.key)).slice().reverse();
+    const seriesKeys = metric.key === "actualQtyKg" ? ["targetQtyKg", "actualQtyKg"]
+        : ["fill_weight_1st_g", "fill_weight_2nd_g"].includes(metric.key) ? ["fill_weight_1st_g", "fill_weight_2nd_g"]
+        : ["upper_seal_temp_c", "lower_seal_temp_c"].includes(metric.key) ? ["upper_seal_temp_c", "lower_seal_temp_c"]
+        : [metric.key];
+    const processes = measurementProcess === "all" ? STEPS : [measurementProcess];
+    const colors = ["#2563eb", "#ef4444", "#16a34a", "#9333ea", "#ea580c"];
     const chartData = {
-        labels: chronological.map(
-            (row) => dateText(row.timestamp)
-        ),
-        datasets: ["가열/혼합", "냉각"].map((process, index) => (
-            {
-                label: `${process} · ${metric.label}`,
-                data: chronological.map((row, i) => sensorProcess(row) === process ? numericValues[i] : null),
-                borderColor: index === 0 ? "#ef4444" : "#2563eb",
-                backgroundColor: index === 0 ? "#fee2e2" : "#dbeafe",
-                pointRadius: 3,
-                tension: 0.2,
+        labels: chronological.map(row => dateText(row.measurementTime) + " · " + (row.materialName || row.measurementId)),
+        datasets: processes.flatMap(process => seriesKeys.map(key => ({ process, key })))
+            .filter(series => chronological.some(row => row.measurementProcess === series.process && numericMeasurement(row[series.key]) !== null))
+            .map((series, index) => ({
+                label: series.process + " · " + (ALL_METRICS.find(item => item.key === series.key)?.label || series.key),
+                data: chronological.map(row => row.measurementProcess === series.process ? numericMeasurement(row[series.key]) : null),
+                borderColor: colors[index % colors.length],
+                backgroundColor: colors[index % colors.length],
+                pointRadius: chronological.length > 100 ? 1 : 3,
+                tension: 0.1,
                 spanGaps: false
-            }
-        ))
+            }))
     };
 
     const chartOptions = {
@@ -996,11 +1036,7 @@ export default function Process() {
         }
     };
 
-    const hasChartData = numericValues.some(
-        (value) =>
-            value !== null
-            && Number.isFinite(value)
-    );
+    const hasChartData = chartData.datasets.some(series => series.data.some(value => value !== null && Number.isFinite(value)));
 
     // 현재 상태 안내
     let guidance = "LOT를 선택해 주세요.";
@@ -1384,16 +1420,16 @@ export default function Process() {
                 </section>
             )}
 
-            {/* LOT의 가열·냉각 센서 이력 */}
+            {/* LOT의 전체 공정 수치 이력 */}
             <div className="pm-heading pm-sensor-heading">
-                <h2>센서 모니터링</h2>
+                <h2>공정 측정값 모니터링</h2>
 
-                <p className="pm-muted">선택 LOT의 2·3공정 측정값 · LOT 변경 시 초기화</p>
+                <p className="pm-muted">선택 LOT의 1~5공정 수치 · LOT 변경 시 초기화</p>
             </div>
 
             {sensorError && (
                 <p className="pm-error" role="alert">
-                    센서 조회: {sensorError}
+                    측정값 조회: {sensorError}
                 </p>
             )}
 
@@ -1401,51 +1437,71 @@ export default function Process() {
 
                 {/* 최근 센서값 */}
                 <section className="pm-card">
-                    <h2>최근 센서 측정값</h2>
+                    <h2>최근 공정 측정값</h2>
 
                     <p className="pm-muted">
                         {sensorLoading
                             ? "조회 중…"
-                            : sensors.length > 0
+                            : visibleRows.length > 0
                                 ? (
-                                    `${sensorProcess(sensors[0]) || "센서"} 마지막 측정: `
-                                    + dateText(sensors[0].timestamp)
+                                    `${visibleRows[0].measurementProcess} 마지막 측정: `
+                                    + dateText(visibleRows[0].measurementTime)
                                 )
-                                : "연결된 센서 데이터가 없습니다."}
+                                : "선택 공정의 측정값이 아직 없습니다."}
                     </p>
 
                     <div className="pm-metrics">
-                        {METRICS.map((item) => (
+                        {metrics.map((item) => {
+                            const latestValue = visibleRows.find(row => numericMeasurement(row[item.key]) !== null);
+                            return (
                             <div key={item.key}>
                                 <span>{item.label}</span>
 
                                 <strong>
                                     {
                                         numberText(
-                                            sensors[0]?.[item.key]
+                                            latestValue?.[item.key]
                                         )
                                     }
                                 </strong>
 
                                 <small>{item.unit}</small>
+                                {latestValue && <small>{latestValue.measurementProcess} · {dateText(latestValue.measurementTime)}</small>}
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </section>
 
                 {/* 센서 그래프 */}
                 <section className="pm-card">
                     <div className="pm-heading">
-                        <h2>센서 변화</h2>
+                        <h2>측정값 변화</h2>
+
+                        <div className="pm-measurement-selectors">
+                        <label>공정
+                            <select aria-label="차트 공정" value={measurementProcess}
+                                onChange={event => {
+                                    const process = event.target.value;
+                                    const options = process === "all" ? ALL_METRICS : PROCESS_METRICS[process];
+                                    setMeasurementProcess(process);
+                                    setMetricKey(previous => options.some(item => item.key === previous) ? previous : options[0].key);
+                                }}>
+                                <option value="all">전체 공정 (동일 항목 비교)</option>
+                                {STEPS.map((process, index) => <option key={process} value={process}>{index + 1}공정 · {process}</option>)}
+                            </select>
+                        </label>
+
+                        <label>공정의 항목
 
                         <select
                             aria-label="차트 측정항목"
-                            value={metricKey}
+                            value={metric.key}
                             onChange={(event) => {
                                 setMetricKey(event.target.value);
                             }}
                         >
-                            {METRICS.map((item) => (
+                            {metrics.map((item) => (
                                 <option
                                     key={item.key}
                                     value={item.key}
@@ -1454,10 +1510,12 @@ export default function Process() {
                                 </option>
                             ))}
                         </select>
+                        </label>
+                        </div>
                     </div>
 
                     <p className="pm-muted">
-                        가열·냉각 측정 이력 {sensors.length}건
+                        선택 항목의 측정 이력 {chronological.length}건
                         {" · "}10초마다 자동 갱신 (조회·처리·팝업 작성 중 일시 중지)
                     </p>
 
