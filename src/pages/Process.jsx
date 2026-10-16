@@ -1013,9 +1013,61 @@ export default function Process() {
     const [sensorError, setSensorError] = useState("");
 
     const [measurementProcess, setMeasurementProcess] = useState("all");
-    const [metricKey, setMetricKey] = useState(
-        "tank_temp_c"
-    );
+const [metricKey, setMetricKey] = useState(
+    "tank_temp_c"
+);
+
+// 화면에 마지막으로 연결한 생성 LOT 번호
+const followedSimulationLotRef = useRef(null);
+
+// 새 LOT가 등록되면 입력창과 공정 상세를 자동 전환
+useEffect(() => {
+    const nextBatchId = simulation?.batchId;
+
+    // 새 LOT가 없거나 아직 DB에 등록 중이면 대기
+    if (
+        !nextBatchId
+        || simulation?.pendingData?.tableName === "batches"
+    ) {
+        return;
+    }
+
+    // 조치 입력·승인·저장 중에는 화면 전환 보류
+    if (busy || alarm || qcExecution) {
+        return;
+    }
+
+    // 같은 LOT를 반복 조회할 때는 다시 전환하지 않음
+    if (followedSimulationLotRef.current === nextBatchId) {
+        return;
+    }
+
+    followedSimulationLotRef.current = nextBatchId;
+
+    // 새 LOT 번호를 입력창과 실제 조회 대상에 반영
+    setInput(nextBatchId);
+    setBatchId(nextBatchId);
+
+    // 이전 LOT의 화면 데이터와 메시지 초기화
+    setSnapshot(EMPTY);
+    setSensors([]);
+    setNotice("");
+    setError("");
+    setLoadError("");
+    setSensorError("");
+    setDialogError("");
+
+    // 새 LOT 목록·공정·측정값 다시 조회
+    setRevision(value => value + 1);
+}, [
+    simulation?.batchId,
+    simulation?.pendingData?.tableName,
+    busy,
+    alarm,
+    qcExecution
+]);
+
+// 다른 팝업에서 알람을 처리하면 목록과 열린 입력창 갱신
 
     // 다른 팝업에서 알람을 처리하면 목록과 열린 입력창 갱신
 useEffect(() => {
