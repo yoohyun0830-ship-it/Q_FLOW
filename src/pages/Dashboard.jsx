@@ -179,7 +179,7 @@ export default function Dashboard() {
                     }),
                     axios.get(`${API_URL}/mask/batches`, {
                         signal: controller.signal,
-                        params: { page: 0, size: 5, sort: "batchId,desc" }
+                        params: { page: 0, size: 5,  status: "완료", sort: "batchId,desc" }
                     })
                 ]);
 
@@ -225,7 +225,7 @@ export default function Dashboard() {
                     totalCount: Number(s.totalCount) || 0,
                     globalRejectCount: Number(s.globalRejectCount) || 0,
                     globalTotalCount: Number(s.globalTotalCount) || 0,
-                    anomalyCount: anomalyList.length
+                    anomalyCount: Number(anomalyResponse.data?.totalElements) || 0
                 });
                 setLatestAnomalies(anomalyList);
 
@@ -580,7 +580,9 @@ export default function Dashboard() {
                                             <td style={{ padding: "6px 8px", fontWeight: "600", color: "#ef4444" }}>
                                                 {alarm.anomalyType || alarm.anomaly_type || "이상 감지"}
                                             </td>
-                                            <td style={{ padding: "6px 8px" }}>{alarm.detectedAt || alarm.detected_at || "-"}</td>
+                                            <td style={{ padding: "6px 8px" }}>{alarm.occurredAt
+                                                            ? alarm.occurredAt.replace("T", " ").slice(0, 19)
+                                                            : "-"}</td>
                                             <td style={{ padding: "6px 8px" }}>{alarm.actionStatus || alarm.action_status || "발생"}</td>
                                         </tr>
                                     ))}
@@ -608,7 +610,7 @@ export default function Dashboard() {
                                         <tr key={lot.batchId} style={{ borderBottom: "1px solid #f1f5f9" }}>
                                             <td style={{ padding: "6px 8px", fontWeight: "600" }}>{lot.batchId}</td>
                                             <td style={{ padding: "6px 8px" }}>{lot.targetUnits ? `${lot.targetUnits.toLocaleString()}개` : "-"}</td>
-                                            <td style={{ padding: "6px 8px", color: "#3b82f6" }}>완료</td>
+                                            <td style={{ padding: "6px 8px", color: "#3b82f6" }}>{lot.status || "-"}</td>
                                         </tr>
                                     ))}
                                 </tbody>
